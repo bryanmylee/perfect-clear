@@ -19,6 +19,8 @@ At any given time, state comprises:
 - probability of PC
   - given any path to PC, the probability of PC is equal to the probability of seeing the pieces required to traverse that path
   - the total probability of PC is the sum of probabilities of paths to PC
+- probability of next PC
+  - traverse the path further until the next PC
 
 ## Actions
 
