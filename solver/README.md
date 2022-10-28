@@ -28,6 +28,7 @@ When applied to a given state, actions produce a new state. There actions availa
 
 - rotate left (check kick table for new position)
 - rotate right (check kick table for new position)
+- rotate 180 (check kick table for new position)
 - move left
 - move right
 - slow drop (move down one line)

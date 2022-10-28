@@ -1,20 +1,27 @@
 use crate::point::Point;
-use crate::rotation::Rotation;
 
 #[derive(Debug)]
-pub enum PieceKind {
+pub enum PieceType {
     I,
+    J,
+    L,
     O,
     S,
-    Z,
     T,
-    L,
-    J,
+    Z,
 }
 
 #[derive(Debug)]
 pub struct Piece {
-    pub kind: PieceKind,
+    pub kind: PieceType,
     pub center: Point<isize>,
-    pub rotation: Rotation,
+    pub orientation: Orientation,
+}
+
+#[derive(Debug)]
+pub enum Orientation {
+    North,
+    South,
+    East,
+    West,
 }
