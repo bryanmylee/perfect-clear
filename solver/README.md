@@ -12,8 +12,8 @@ At any given time, state comprises:
   - center point, piece variant, and rotation
 - hold piece variant
 - is hold used
-- queue pieces
-- seen pieces
+- queue piece variants
+- seen piece variants
 - probability of seeing each piece next
   - dependent on bag type and seen pieces
 - probability of PC
@@ -30,6 +30,19 @@ When applied to a given state, actions produce a new state. There actions availa
 - rotate right (check kick table for new position)
 - move left
 - move right
-- soft drop (move down one line)
-- hard drop
+- slow drop (move down one line)
+- instant drop (hard drop without placing)
 - use hold
+- place piece
+
+## Settings
+
+Different implementations of Tetris have slightly different rulesets which affect the solver's behavior.
+
+Some possible configuration options include:
+
+- next piece generation: random, 7-bag, 14-bag
+- kick table: SRS, SRS+, etc. This can be matched to specific Tetris games.
+- slow drop allowed
+
+The solver should reset its cache whenever these options change.

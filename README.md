@@ -13,3 +13,15 @@ An experiment to use WebAssembly for high performance in the solver algorithm an
 7. If there are no valid solves, a message will appear at the bottom of the board indicating as such.
 8. Otherwise, the pieces will move until the perfect clear is achieved.
 9. The user can step back through the actions taken via a timeline below the board.
+
+## Implementation
+
+On starting the solving process, a serialized message can be sent from the UI to the solver worker describing the starting conditions.
+
+Once given the starting conditions, the solver will find the next states possible given a set of possible actions and determine the possible paths towards a perfect clear. These paths will have a probability attached based on the probability of the next pieces which have yet to be seen.
+
+- The worker should retain a cache of states to valid paths for performance.
+
+The solver will return the path with the highest probability of reaching a perfect clear; this may be a single action or a series of actions. It will also return the next state given those actions, which will include blanks in the next queue.
+
+The user will then be responsible for filling in the next pieces before continuing the solving process, upon which another serialized message will be sent from the UI to the solver worker describing the new starting conditions.
