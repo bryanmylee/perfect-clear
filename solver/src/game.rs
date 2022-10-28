@@ -1,7 +1,7 @@
 use crate::board::Board;
 use crate::piece::{Piece, PieceType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NextProbability {
     i: f64,
     j: f64,
@@ -12,7 +12,7 @@ pub struct NextProbability {
     z: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State {
     board: Board,
     piece: Piece,
@@ -26,8 +26,10 @@ pub struct State {
 }
 
 impl State {
-    fn reduce(&self, action: &Action) -> State {
-        self.clone()
+    pub fn reduce(&self, action: &Action) -> State {
+        match action {
+            _ => self.clone(),
+        }
     }
 }
 

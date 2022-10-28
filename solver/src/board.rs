@@ -1,6 +1,6 @@
 use crate::point::Point;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     /**
     A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to get

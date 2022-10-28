@@ -1,6 +1,6 @@
 use crate::point::Point;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PieceType {
     I,
     J,
@@ -11,14 +11,14 @@ pub enum PieceType {
     Z,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Piece {
     pub kind: PieceType,
     pub center: Point<isize>,
     pub orientation: Orientation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Orientation {
     North,
     South,
