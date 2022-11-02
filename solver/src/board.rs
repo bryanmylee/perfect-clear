@@ -25,6 +25,17 @@ impl Board {
         }
     }
 
+    fn filled_board() -> Board {
+        Board {
+            fill: [
+                0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+            ],
+        }
+    }
+
     /**
     `{ x: 0, y: 0 }` starts on the bottom-left.
 
@@ -55,13 +66,26 @@ impl Board {
         let y_idx = point.y % 6;
         *y_segment |= 0b1 << (point.x + y_idx * 10);
     }
+
+    fn empty(&mut self, point: &Point<isize>) {
+        if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
+            return;
+        }
+        let y_segment_idx = point.y / 6;
+        let y_segment = self.fill.get_mut(y_segment_idx as usize);
+        let Some(y_segment) = y_segment else {
+            return;
+        };
+        let y_idx = point.y % 6;
+        *y_segment &= !(0b1 << (point.x + y_idx * 10));
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn assert_filled_only(board: &Board, fills: Vec<Point<isize>>) {
+    fn assert_only_filled(board: &Board, fills: Vec<Point<isize>>) {
         for x in 0..10 {
             for y in 0..24 {
                 let is_filled = fills.contains(&Point { x, y });
@@ -70,6 +94,22 @@ mod tests {
                     is_filled,
                     "Expected board to be {} at ({}, {})",
                     if is_filled { "filled" } else { "empty" },
+                    x,
+                    y
+                );
+            }
+        }
+    }
+
+    fn assert_only_emptied(board: &Board, empties: Vec<Point<isize>>) {
+        for x in 0..10 {
+            for y in 0..24 {
+                let is_empty = empties.contains(&Point { x, y });
+                assert_eq!(
+                    !board.is_filled(&Point { x, y }),
+                    is_empty,
+                    "Expected board to be {} at ({}, {})",
+                    if is_empty { "empty" } else { "filled" },
                     x,
                     y
                 );
@@ -91,7 +131,7 @@ mod tests {
                 ],
             };
 
-            assert_filled_only(
+            assert_only_filled(
                 &board,
                 vec![
                     Point { x: 0, y: 0 },
@@ -149,13 +189,13 @@ mod tests {
             let mut board = Board::empty_board();
 
             board.fill(&Point { x: 0, y: 0 });
-            assert_filled_only(&board, vec![Point { x: 0, y: 0 }]);
+            assert_only_filled(&board, vec![Point { x: 0, y: 0 }]);
 
             board.fill(&Point { x: 9, y: 0 });
-            assert_filled_only(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
+            assert_only_filled(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
 
             board.fill(&Point { x: 0, y: 10 });
-            assert_filled_only(
+            assert_only_filled(
                 &board,
                 vec![
                     Point { x: 0, y: 0 },
@@ -165,7 +205,7 @@ mod tests {
             );
 
             board.fill(&Point { x: 9, y: 10 });
-            assert_filled_only(
+            assert_only_filled(
                 &board,
                 vec![
                     Point { x: 0, y: 0 },
@@ -176,7 +216,7 @@ mod tests {
             );
 
             board.fill(&Point { x: 0, y: 20 });
-            assert_filled_only(
+            assert_only_filled(
                 &board,
                 vec![
                     Point { x: 0, y: 0 },
@@ -188,7 +228,68 @@ mod tests {
             );
 
             board.fill(&Point { x: 9, y: 20 });
-            assert_filled_only(
+            assert_only_filled(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                    Point { x: 0, y: 20 },
+                    Point { x: 9, y: 20 },
+                ],
+            );
+        }
+    }
+
+    mod empty {
+        use super::*;
+
+        #[test]
+        fn empties_cells() {
+            let mut board = Board::filled_board();
+
+            board.empty(&Point { x: 0, y: 0 });
+            assert_only_emptied(&board, vec![Point { x: 0, y: 0 }]);
+
+            board.empty(&Point { x: 9, y: 0 });
+            assert_only_emptied(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
+
+            board.empty(&Point { x: 0, y: 10 });
+            assert_only_emptied(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                ],
+            );
+
+            board.empty(&Point { x: 9, y: 10 });
+            assert_only_emptied(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                ],
+            );
+
+            board.empty(&Point { x: 0, y: 20 });
+            assert_only_emptied(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                    Point { x: 0, y: 20 },
+                ],
+            );
+
+            board.empty(&Point { x: 9, y: 20 });
+            assert_only_emptied(
                 &board,
                 vec![
                     Point { x: 0, y: 0 },
