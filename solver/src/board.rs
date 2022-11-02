@@ -14,13 +14,24 @@ pub struct Board {
 }
 
 impl Board {
+    fn empty_board() -> Board {
+        Board {
+            fill: [
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+            ],
+        }
+    }
+
     /**
     `{ x: 0, y: 0 }` starts on the bottom-left.
 
     For convenience, we treat `x: -1` and `x: 10` as filled for the kick-table.
     */
-    fn is_filled(&self, at: Point<isize>) -> bool {
-        if at.x < 0 || at.x > 9 {
+    fn is_filled(&self, at: &Point<isize>) -> bool {
+        if at.x < 0 || at.x >= 10 {
             return true;
         }
         let y_segment_idx = at.y / 6;
@@ -32,18 +43,39 @@ impl Board {
         (*y_segment >> (at.x + y_idx * 10)) & 0b1 == 1
     }
 
-    fn has_overlap(&self, against: &BoardFill) -> bool {
-        true
-    }
-
-    fn with_overlap(&self, against: &BoardFill) -> Board {
-        self.clone()
+    fn fill(&mut self, point: &Point<isize>) {
+        if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
+            return;
+        }
+        let y_segment_idx = point.y / 6;
+        let y_segment = self.fill.get_mut(y_segment_idx as usize);
+        let Some(y_segment) = y_segment else {
+            return;
+        };
+        let y_idx = point.y % 6;
+        *y_segment |= 0b1 << (point.x + y_idx * 10);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_filled_only(board: &Board, fills: Vec<Point<isize>>) {
+        for x in 0..10 {
+            for y in 0..24 {
+                let is_filled = fills.contains(&Point { x, y });
+                assert_eq!(
+                    board.is_filled(&Point { x, y }),
+                    is_filled,
+                    "Expected board to be {} at ({}, {})",
+                    if is_filled { "filled" } else { "empty" },
+                    x,
+                    y
+                );
+            }
+        }
+    }
 
     mod is_filled {
         use super::*;
@@ -59,70 +91,114 @@ mod tests {
                 ],
             };
 
-            for x in 0..10 {
-                for y in 0..24 {
-                    let is_filled = match (x, y) {
-                        (0, 0) => true,
-                        (1, 0) => true,
-                        (3, 0) => true,
-                        (4, 0) => true,
-                        (5, 0) => true,
-                        (6, 0) => true,
-                        (8, 0) => true,
-                        (9, 0) => true,
-                        (0, 1) => true,
-                        (8, 1) => true,
-                        (9, 1) => true,
-                        (0, 2) => true,
-                        (0, 6) => true,
-                        (1, 6) => true,
-                        (3, 6) => true,
-                        (4, 6) => true,
-                        (5, 6) => true,
-                        (6, 6) => true,
-                        (8, 6) => true,
-                        (9, 6) => true,
-                        (0, 7) => true,
-                        (8, 7) => true,
-                        (9, 7) => true,
-                        (0, 8) => true,
-                        (_, _) => false,
-                    };
-                    assert_eq!(
-                        board.is_filled(Point { x, y }),
-                        is_filled,
-                        "Expected board to be {} at ({}, {})",
-                        if is_filled { "filled" } else { "empty" },
-                        x,
-                        y
-                    );
-                }
-            }
+            assert_filled_only(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 1, y: 0 },
+                    Point { x: 3, y: 0 },
+                    Point { x: 4, y: 0 },
+                    Point { x: 5, y: 0 },
+                    Point { x: 6, y: 0 },
+                    Point { x: 8, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 1 },
+                    Point { x: 8, y: 1 },
+                    Point { x: 9, y: 1 },
+                    Point { x: 0, y: 2 },
+                    Point { x: 0, y: 6 },
+                    Point { x: 1, y: 6 },
+                    Point { x: 3, y: 6 },
+                    Point { x: 4, y: 6 },
+                    Point { x: 5, y: 6 },
+                    Point { x: 6, y: 6 },
+                    Point { x: 8, y: 6 },
+                    Point { x: 9, y: 6 },
+                    Point { x: 0, y: 7 },
+                    Point { x: 8, y: 7 },
+                    Point { x: 9, y: 7 },
+                    Point { x: 0, y: 8 },
+                ],
+            );
         }
 
         #[test]
         fn walls_are_filled() {
-            let board = Board {
-                fill: [
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                ],
-            };
+            let board = Board::empty_board();
 
             for y in 0..24 {
                 assert!(
-                    board.is_filled(Point { x: -1, y }),
+                    board.is_filled(&Point { x: -1, y }),
                     "Expected left wall to be filled on line {}",
                     y
                 );
                 assert!(
-                    board.is_filled(Point { x: 10, y }),
+                    board.is_filled(&Point { x: 10, y }),
                     "Expected right wall to be filled on line {}",
                     y
                 );
             }
+        }
+    }
+
+    mod fill {
+        use super::*;
+
+        #[test]
+        fn fills_cells() {
+            let mut board = Board::empty_board();
+
+            board.fill(&Point { x: 0, y: 0 });
+            assert_filled_only(&board, vec![Point { x: 0, y: 0 }]);
+
+            board.fill(&Point { x: 9, y: 0 });
+            assert_filled_only(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
+
+            board.fill(&Point { x: 0, y: 10 });
+            assert_filled_only(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                ],
+            );
+
+            board.fill(&Point { x: 9, y: 10 });
+            assert_filled_only(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                ],
+            );
+
+            board.fill(&Point { x: 0, y: 20 });
+            assert_filled_only(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                    Point { x: 0, y: 20 },
+                ],
+            );
+
+            board.fill(&Point { x: 9, y: 20 });
+            assert_filled_only(
+                &board,
+                vec![
+                    Point { x: 0, y: 0 },
+                    Point { x: 9, y: 0 },
+                    Point { x: 0, y: 10 },
+                    Point { x: 9, y: 10 },
+                    Point { x: 0, y: 20 },
+                    Point { x: 9, y: 20 },
+                ],
+            );
         }
     }
 }
