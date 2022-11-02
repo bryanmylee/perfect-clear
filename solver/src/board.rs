@@ -1,8 +1,10 @@
+use std::fmt;
+
 use crate::point::Point;
 
 pub type BoardFill = [u64; 4];
 
-#[derive(Debug, Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Board {
     /**
     A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to get
@@ -13,8 +15,26 @@ pub struct Board {
     fill: BoardFill,
 }
 
+impl fmt::Debug for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        const BOARD_CAPACITY: usize = 24 * 14;
+        let mut board_result = String::with_capacity(BOARD_CAPACITY);
+        for y in (0..24).map(|y| 23 - y) {
+            board_result.push_str(&format!("\n{:0>2} ", y));
+            for x in 0..10 {
+                board_result.push(if self.is_filled(&Point { x, y }) {
+                    'x'
+                } else {
+                    '-'
+                });
+            }
+        }
+        f.write_str(&board_result)
+    }
+}
+
 impl Board {
-    fn empty_board() -> Board {
+    pub fn empty_board() -> Board {
         Board {
             fill: [
                 0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
@@ -25,7 +45,7 @@ impl Board {
         }
     }
 
-    fn filled_board() -> Board {
+    pub fn filled_board() -> Board {
         Board {
             fill: [
                 0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
@@ -41,7 +61,7 @@ impl Board {
 
     For convenience, we treat `x: -1` and `x: 10` as filled for the kick-table.
     */
-    fn is_filled(&self, at: &Point<isize>) -> bool {
+    pub fn is_filled(&self, at: &Point<isize>) -> bool {
         if at.x < 0 || at.x >= 10 {
             return true;
         }
@@ -54,7 +74,7 @@ impl Board {
         (*y_segment >> (at.x + y_idx * 10)) & 0b1 == 1
     }
 
-    fn fill(&mut self, point: &Point<isize>) {
+    pub fn fill(&mut self, point: &Point<isize>) {
         if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
             return;
         }
@@ -67,7 +87,7 @@ impl Board {
         *y_segment |= 0b1 << (point.x + y_idx * 10);
     }
 
-    fn empty(&mut self, point: &Point<isize>) {
+    pub fn empty(&mut self, point: &Point<isize>) {
         if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
             return;
         }
