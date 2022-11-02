@@ -1,5 +1,6 @@
 use crate::board::Board;
-use crate::piece::{Piece, PieceType};
+use crate::config::Config;
+use crate::piece::{Piece, PieceKind};
 
 #[derive(Debug, Clone)]
 pub struct NextProbability {
@@ -16,37 +17,47 @@ pub struct NextProbability {
 pub struct State {
     board: Board,
     piece: Piece,
-    hold: Option<PieceType>,
+    is_valid: bool,
+    hold: Option<PieceKind>,
     is_hold_used: bool,
-    queue: [Option<PieceType>; 7], // fixed queue size to reduce heap allocations
-    seen: [Option<PieceType>; 14], // only to 2-bags needed to determine next piece probability
+    queue: [Option<PieceKind>; 7], // fixed queue size to reduce heap allocations
+    seen: [Option<PieceKind>; 14], // only to 2-bags needed to determine next piece probability
     next_prob: NextProbability,
     pc_prob: f64,
     next_pc_prob: f64,
 }
 
 impl State {
-    pub fn reduce(&self, action: &Action) -> State {
+    pub fn reduce(&self, action: &Action, config: &Config) -> State {
         match action {
+            Action::Spawn(piece_type) => self.spawned(piece_type, config),
             _ => self.clone(),
         }
     }
+
+    fn spawned(&self, piece_type: &PieceKind, config: &Config) -> State {
+        self.clone()
+    }
 }
 
+#[derive(Debug, Clone)]
 pub enum Action {
     Rotate(Rotation),
     Move(Direction),
     Drop,
     Hold,
     Place,
+    Spawn(PieceKind),
 }
 
+#[derive(Debug, Clone)]
 pub enum Rotation {
     Clockwise,
     AntiClockwise,
     Half,
 }
 
+#[derive(Debug, Clone)]
 pub enum Direction {
     Left,
     Right,
