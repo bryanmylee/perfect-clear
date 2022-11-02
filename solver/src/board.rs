@@ -1,5 +1,7 @@
 use crate::point::Point;
 
+pub type BoardFill = [u64; 4];
+
 #[derive(Debug, Clone)]
 pub struct Board {
     /**
@@ -8,7 +10,7 @@ pub struct Board {
 
     The segments are ordered from bottom to top and the cells in each segment are ordered from bottom-left to top-right.
     */
-    fill: [u64; 4],
+    fill: BoardFill,
 }
 
 impl Board {
@@ -28,6 +30,14 @@ impl Board {
         };
         let y_idx = at.y % 6;
         (*y_segment >> (at.x + y_idx * 10)) & 0b1 == 1
+    }
+
+    fn has_overlap(&self, against: &BoardFill) -> bool {
+        true
+    }
+
+    fn with_overlap(&self, against: &BoardFill) -> Board {
+        self.clone()
     }
 }
 
