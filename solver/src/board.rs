@@ -18,6 +18,9 @@ impl Board {
     For convenience, we treat `x: -1` and `x: 10` as filled for the kick-table.
     */
     fn is_filled(&self, at: Point<isize>) -> bool {
+        if at.x < 0 || at.x > 9 {
+            return true;
+        }
         let y_segment_idx = at.y / 6;
         let y_segment = self.fill.get(y_segment_idx as usize);
         let Some(y_segment) = y_segment else {
@@ -36,53 +39,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn empty_board_is_never_filled() {
-            let board = Board {
-                fill: [
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
-                ],
-            };
-
-            for x in 0..10 {
-                for y in 0..24 {
-                    assert!(
-                        !board.is_filled(Point { x, y }),
-                        "Expected board to be empty at ({}, {})",
-                        x,
-                        y
-                    );
-                }
-            }
-        }
-
-        #[test]
-        fn full_board_is_always_filled() {
-            let board = Board {
-                fill: [
-                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
-                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
-                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
-                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
-                ],
-            };
-
-            for x in 0..10 {
-                for y in 0..24 {
-                    assert!(
-                        board.is_filled(Point { x, y }),
-                        "Expected board to be filled at ({}, {})",
-                        x,
-                        y
-                    );
-                }
-            }
-        }
-
-        #[test]
-        fn mixed_board() {
+        fn detects_filled_and_empty_cells() {
             let board = Board {
                 fill: [
                     0b0000000000_0000000000_0000000000_0000000001_1100000001_1101111011,
@@ -130,6 +87,31 @@ mod tests {
                         y
                     );
                 }
+            }
+        }
+
+        #[test]
+        fn walls_are_filled() {
+            let board = Board {
+                fill: [
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                ],
+            };
+
+            for y in 0..24 {
+                assert!(
+                    board.is_filled(Point { x: -1, y }),
+                    "Expected left wall to be filled on line {}",
+                    y
+                );
+                assert!(
+                    board.is_filled(Point { x: 10, y }),
+                    "Expected right wall to be filled on line {}",
+                    y
+                );
             }
         }
     }
