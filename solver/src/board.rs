@@ -107,16 +107,9 @@ impl Board {
             .any(|(a, b)| a & b > 0)
     }
 
-    pub fn unioned(&self, other: &Board) -> Board {
-        Board {
-            fill: self
-                .fill
-                .iter()
-                .zip(other.fill.iter())
-                .map(|(a, b)| a | b)
-                .collect::<Vec<u64>>()
-                .try_into()
-                .unwrap(),
+    pub fn union(&mut self, other: &Board) {
+        for (a, b) in self.fill.iter_mut().zip(other.fill.iter()) {
+            *a |= b;
         }
     }
 
@@ -128,12 +121,6 @@ impl Board {
         for point in piece_points {
             self.fill(point);
         }
-    }
-
-    pub fn with_piece_points(&self, piece_points: &PiecePoints) -> Board {
-        let mut new_board = self.clone();
-        new_board.fill_piece_points(piece_points);
-        new_board
     }
 }
 
@@ -414,12 +401,12 @@ mod tests {
         }
     }
 
-    mod unioned {
+    mod union {
         use super::*;
 
         #[test]
-        fn unioned_two_boards() {
-            let a = Board {
+        fn unions_another_board() {
+            let mut a = Board {
                 fill: [
                     0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
                     0b0101010101_0101010101_0101010101_0101010101_0101010101_0101010101,
@@ -437,6 +424,8 @@ mod tests {
                 ],
             };
 
+            a.union(&b);
+
             let expected = Board {
                 fill: [
                     0b0101010101_0101010101_0101010101_0101010101_0101010101_0101010101,
@@ -446,7 +435,7 @@ mod tests {
                 ],
             };
 
-            assert_eq!(expected, a.unioned(&b));
+            assert_eq!(expected, a);
         }
     }
 
@@ -520,20 +509,20 @@ mod tests {
         }
     }
 
-    mod with_piece_points {
+    mod fill_piece_points {
         use crate::piece::{Orientation, Piece, PieceKind};
 
         use super::*;
 
         #[test]
         fn fills_piece() {
-            let board = Board::empty_board();
-
+            let mut board = Board::empty_board();
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
                 position: Point { x: 3, y: 21 },
             };
+            board.fill_piece_points(&piece.get_points(&CONFIG));
 
             let expected_board = Board {
                 fill: [
@@ -544,10 +533,7 @@ mod tests {
                 ],
             };
 
-            assert_eq!(
-                board.with_piece_points(&piece.get_points(&CONFIG)),
-                expected_board,
-            )
+            assert_eq!(board, expected_board,)
         }
     }
 }
