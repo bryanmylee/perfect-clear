@@ -16,3 +16,12 @@ impl<T: Add<Output = T>> Add for Point<T> {
         }
     }
 }
+
+use std::ops::AddAssign;
+
+impl<T: AddAssign> AddAssign for Point<T> {
+    fn add_assign(&mut self, other: Self) {
+        self.x += other.x;
+        self.y += other.y;
+    }
+}
