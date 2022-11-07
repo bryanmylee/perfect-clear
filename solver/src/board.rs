@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::point::Point;
+use crate::{piece::PiecePoints, point::Point};
 
 pub type BoardFill = [u64; 4];
 
@@ -119,11 +119,21 @@ impl Board {
                 .unwrap(),
         }
     }
+
+    pub fn can_fit(&self, piece_points: &PiecePoints) -> bool {
+        piece_points.iter().all(|point| !self.is_filled(point))
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::config::{Config, RotationSystem};
+
     use super::*;
+
+    const CONFIG: Config = Config {
+        rotation_system: RotationSystem::SRS,
+    };
 
     fn assert_only_filled(board: &Board, fills: Vec<Point<isize>>) {
         for x in 0..10 {
@@ -425,6 +435,76 @@ mod tests {
             };
 
             assert_eq!(expected, a.unioned(&b));
+        }
+    }
+
+    mod can_fit {
+        use crate::piece::{Orientation, Piece, PieceKind};
+
+        use super::*;
+
+        #[test]
+        fn fits_in_a_minimal_gap() {
+            let board = Board {
+                fill: [
+                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                    0b1111111111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                    0b1110000111_1111111111_1111111111_1111111111_1111111111_1111111111,
+                ],
+            };
+
+            let piece = Piece {
+                kind: PieceKind::I,
+                orientation: Orientation::North,
+                position: Point { x: 3, y: 21 },
+            };
+
+            assert!(
+                board.can_fit(&piece.get_points(&CONFIG)),
+                "Expected I piece to fit in board {:?}",
+                board
+            )
+        }
+
+        #[test]
+        fn cannot_fit_when_cell_overlaps() {
+            let board = Board {
+                fill: [
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0001000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                ],
+            };
+
+            let piece = Piece {
+                kind: PieceKind::I,
+                orientation: Orientation::North,
+                position: Point { x: 3, y: 21 },
+            };
+
+            assert!(
+                !board.can_fit(&piece.get_points(&CONFIG)),
+                "Expected I piece to not fit in board {:?}",
+                board
+            )
+        }
+
+        #[test]
+        fn cannot_fit_when_wall_collides() {
+            let board = Board::empty_board();
+
+            let piece = Piece {
+                kind: PieceKind::I,
+                orientation: Orientation::North,
+                position: Point { x: -1, y: 0 },
+            };
+
+            assert!(
+                !board.can_fit(&piece.get_points(&CONFIG)),
+                "Expected I piece to collide against the board wall",
+            )
         }
     }
 }
