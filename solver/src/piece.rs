@@ -1,4 +1,7 @@
-use crate::{config::Config, point::Point};
+use crate::{
+    config::{Config, RotationSystem},
+    point::Point,
+};
 
 #[derive(Debug, Clone)]
 pub enum PieceKind {
@@ -9,6 +12,88 @@ pub enum PieceKind {
     S,
     T,
     Z,
+}
+
+impl PieceKind {
+    pub fn get_spawn_point(&self, config: &Config) -> Point<isize> {
+        match config.rotation_system {
+            RotationSystem::SRS => match self {
+                PieceKind::I => Point { x: 3, y: 21 },
+                PieceKind::J => Point { x: 3, y: 21 },
+                PieceKind::L => Point { x: 3, y: 21 },
+                PieceKind::O => Point { x: 3, y: 21 },
+                PieceKind::S => Point { x: 3, y: 21 },
+                PieceKind::T => Point { x: 3, y: 21 },
+                PieceKind::Z => Point { x: 3, y: 21 },
+            },
+        }
+    }
+
+    fn get_unoriented_offsets(&self, config: &Config) -> PieceOffsets {
+        PieceOffsets {
+            offsets: self.get_position_offsets(config),
+            bounding_box_size: self.get_bounding_box_size(config),
+        }
+    }
+
+    fn get_position_offsets(&self, _config: &Config) -> [Point<isize>; 4] {
+        match self {
+            PieceKind::I => [
+                Point { x: 0, y: 2 },
+                Point { x: 1, y: 2 },
+                Point { x: 2, y: 2 },
+                Point { x: 3, y: 2 },
+            ],
+            PieceKind::J => [
+                Point { x: 0, y: 2 },
+                Point { x: 0, y: 1 },
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 1 },
+            ],
+            PieceKind::L => [
+                Point { x: 2, y: 2 },
+                Point { x: 0, y: 1 },
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 1 },
+            ],
+            PieceKind::O => [
+                Point { x: 1, y: 2 },
+                Point { x: 2, y: 2 },
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 1 },
+            ],
+            PieceKind::S => [
+                Point { x: 1, y: 2 },
+                Point { x: 2, y: 2 },
+                Point { x: 0, y: 1 },
+                Point { x: 1, y: 1 },
+            ],
+            PieceKind::T => [
+                Point { x: 1, y: 2 },
+                Point { x: 0, y: 1 },
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 1 },
+            ],
+            PieceKind::Z => [
+                Point { x: 0, y: 2 },
+                Point { x: 1, y: 2 },
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 1 },
+            ],
+        }
+    }
+
+    fn get_bounding_box_size(&self, _config: &Config) -> usize {
+        match self {
+            PieceKind::I => 4,
+            PieceKind::J => 3,
+            PieceKind::L => 3,
+            PieceKind::O => 4,
+            PieceKind::S => 3,
+            PieceKind::T => 3,
+            PieceKind::Z => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -44,78 +129,12 @@ pub type PiecePoints = [Point<isize>; 4];
 
 impl Piece {
     pub fn get_points(&self, config: &Config) -> PiecePoints {
-        let mut offsets = get_unoriented_offsets(&self.kind, config);
+        let mut offsets = self.kind.get_unoriented_offsets(config);
         orient_offsets(&mut offsets, &self.orientation);
         for offset in offsets.offsets.iter_mut() {
             *offset += self.position;
         }
         offsets.offsets
-    }
-}
-
-fn get_unoriented_offsets(kind: &PieceKind, config: &Config) -> PieceOffsets {
-    PieceOffsets {
-        offsets: get_position_offsets(kind, config),
-        bounding_box_size: get_bounding_box_size(kind, config),
-    }
-}
-
-fn get_position_offsets(kind: &PieceKind, _config: &Config) -> [Point<isize>; 4] {
-    match kind {
-        PieceKind::I => [
-            Point { x: 0, y: 2 },
-            Point { x: 1, y: 2 },
-            Point { x: 2, y: 2 },
-            Point { x: 3, y: 2 },
-        ],
-        PieceKind::J => [
-            Point { x: 0, y: 2 },
-            Point { x: 0, y: 1 },
-            Point { x: 1, y: 1 },
-            Point { x: 2, y: 1 },
-        ],
-        PieceKind::L => [
-            Point { x: 2, y: 2 },
-            Point { x: 0, y: 1 },
-            Point { x: 1, y: 1 },
-            Point { x: 2, y: 1 },
-        ],
-        PieceKind::O => [
-            Point { x: 1, y: 2 },
-            Point { x: 2, y: 2 },
-            Point { x: 1, y: 1 },
-            Point { x: 2, y: 1 },
-        ],
-        PieceKind::S => [
-            Point { x: 1, y: 2 },
-            Point { x: 2, y: 2 },
-            Point { x: 0, y: 1 },
-            Point { x: 1, y: 1 },
-        ],
-        PieceKind::T => [
-            Point { x: 1, y: 2 },
-            Point { x: 0, y: 1 },
-            Point { x: 1, y: 1 },
-            Point { x: 2, y: 1 },
-        ],
-        PieceKind::Z => [
-            Point { x: 0, y: 2 },
-            Point { x: 1, y: 2 },
-            Point { x: 1, y: 1 },
-            Point { x: 2, y: 1 },
-        ],
-    }
-}
-
-fn get_bounding_box_size(kind: &PieceKind, _config: &Config) -> usize {
-    match kind {
-        PieceKind::I => 4,
-        PieceKind::J => 3,
-        PieceKind::L => 3,
-        PieceKind::O => 4,
-        PieceKind::S => 3,
-        PieceKind::T => 3,
-        PieceKind::Z => 3,
     }
 }
 
@@ -181,7 +200,7 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::I, &CONFIG);
+                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
@@ -191,7 +210,7 @@ mod tests {
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::J, &CONFIG);
+                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
@@ -201,7 +220,7 @@ mod tests {
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::L, &CONFIG);
+                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
@@ -211,7 +230,7 @@ mod tests {
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::O, &CONFIG);
+                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -221,7 +240,7 @@ mod tests {
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::S, &CONFIG);
+                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -231,7 +250,7 @@ mod tests {
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::T, &CONFIG);
+                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
@@ -241,7 +260,7 @@ mod tests {
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::Z, &CONFIG);
+                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::North);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
@@ -255,7 +274,7 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::I, &CONFIG);
+                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -265,7 +284,7 @@ mod tests {
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::J, &CONFIG);
+                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -275,7 +294,7 @@ mod tests {
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::L, &CONFIG);
+                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -285,7 +304,7 @@ mod tests {
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::O, &CONFIG);
+                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -295,7 +314,7 @@ mod tests {
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::S, &CONFIG);
+                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
@@ -305,7 +324,7 @@ mod tests {
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::T, &CONFIG);
+                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -315,7 +334,7 @@ mod tests {
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::Z, &CONFIG);
+                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::South);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -329,7 +348,7 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::I, &CONFIG);
+                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 3 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -339,7 +358,7 @@ mod tests {
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::J, &CONFIG);
+                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -349,7 +368,7 @@ mod tests {
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::L, &CONFIG);
+                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -359,7 +378,7 @@ mod tests {
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::O, &CONFIG);
+                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -369,7 +388,7 @@ mod tests {
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::S, &CONFIG);
+                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -379,7 +398,7 @@ mod tests {
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::T, &CONFIG);
+                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -389,7 +408,7 @@ mod tests {
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::Z, &CONFIG);
+                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::East);
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -403,7 +422,7 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::I, &CONFIG);
+                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 3 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
@@ -413,7 +432,7 @@ mod tests {
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::J, &CONFIG);
+                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
@@ -423,7 +442,7 @@ mod tests {
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::L, &CONFIG);
+                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
@@ -433,7 +452,7 @@ mod tests {
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::O, &CONFIG);
+                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
@@ -443,7 +462,7 @@ mod tests {
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::S, &CONFIG);
+                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
@@ -453,7 +472,7 @@ mod tests {
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::T, &CONFIG);
+                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
@@ -463,7 +482,7 @@ mod tests {
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = get_unoriented_offsets(&PieceKind::Z, &CONFIG);
+                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
                 orient_offsets(&mut piece_offsets, &Orientation::West);
                 assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
                 assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
