@@ -123,6 +123,18 @@ impl Board {
     pub fn can_fit(&self, piece_points: &PiecePoints) -> bool {
         piece_points.iter().all(|point| !self.is_filled(point))
     }
+
+    pub fn fill_piece_points(&mut self, piece_points: &PiecePoints) {
+        for point in piece_points {
+            self.fill(point);
+        }
+    }
+
+    pub fn with_piece_points(&self, piece_points: &PiecePoints) -> Board {
+        let mut new_board = self.clone();
+        new_board.fill_piece_points(piece_points);
+        new_board
+    }
 }
 
 #[cfg(test)]
@@ -504,6 +516,37 @@ mod tests {
             assert!(
                 !board.can_fit(&piece.get_points(&CONFIG)),
                 "Expected I piece to collide against the board wall",
+            )
+        }
+    }
+
+    mod with_piece_points {
+        use crate::piece::{Orientation, Piece, PieceKind};
+
+        use super::*;
+
+        #[test]
+        fn fills_piece() {
+            let board = Board::empty_board();
+
+            let piece = Piece {
+                kind: PieceKind::I,
+                orientation: Orientation::North,
+                position: Point { x: 3, y: 21 },
+            };
+
+            let expected_board = Board {
+                fill: [
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                    0b0001111000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                ],
+            };
+
+            assert_eq!(
+                board.with_piece_points(&piece.get_points(&CONFIG)),
+                expected_board,
             )
         }
     }
