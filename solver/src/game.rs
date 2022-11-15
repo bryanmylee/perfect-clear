@@ -1,6 +1,6 @@
 use crate::board::Board;
 use crate::config::Config;
-use crate::piece::{Orientation, Piece, PieceKind};
+use crate::piece::{Piece, PieceKind};
 
 #[derive(Debug, Clone)]
 pub struct NextProbability {
@@ -125,7 +125,7 @@ mod tests {
     };
 
     mod with_placed_piece {
-        use crate::point::Point;
+        use crate::{piece::Orientation, point::Point};
 
         use super::*;
 
