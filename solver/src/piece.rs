@@ -3,7 +3,7 @@ use crate::{
     point::Point,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum PieceKind {
     I,
     J,
@@ -104,6 +104,16 @@ pub struct Piece {
     */
     pub position: Point<isize>,
     pub orientation: Orientation,
+}
+
+impl Piece {
+    pub fn spawn(kind: &PieceKind, config: &Config) -> Piece {
+        Piece {
+            kind: kind.clone(),
+            position: kind.get_spawn_point(config),
+            orientation: Orientation::North,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
