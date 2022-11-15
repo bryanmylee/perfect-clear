@@ -62,7 +62,7 @@ impl Board {
     For convenience, we treat `x: -1` and `x: 10` as filled for the kick-table.
     */
     pub fn is_filled(&self, at: &Point<isize>) -> bool {
-        if at.x < 0 || at.x >= 10 {
+        if at.x < 0 || at.x >= 10 || at.y < 0 {
             return true;
         }
         let y_segment_idx = at.y / 6;
@@ -115,6 +115,14 @@ impl Board {
 
     pub fn can_fit(&self, piece_points: &PiecePoints) -> bool {
         piece_points.iter().all(|point| !self.is_filled(point))
+    }
+
+    pub fn can_place(&self, piece_points: &PiecePoints) -> bool {
+        let offset = Point { x: 0, y: -1 };
+        println!("{:?}", piece_points);
+        piece_points
+            .iter()
+            .any(|point| self.is_filled(&(*point + offset)))
     }
 
     pub fn fill_piece_points(&mut self, piece_points: &PiecePoints) {
@@ -225,6 +233,19 @@ mod tests {
                     board.is_filled(&Point { x: 10, y }),
                     "Expected right wall to be filled on line {}",
                     y
+                );
+            }
+        }
+
+        #[test]
+        fn floor_is_filled() {
+            let board = Board::empty_board();
+
+            for x in 0..10 {
+                assert!(
+                    board.is_filled(&Point { x, y: -1 }),
+                    "Expected floor to be filled on column {}",
+                    x
                 );
             }
         }
@@ -506,6 +527,50 @@ mod tests {
                 !board.can_fit(&piece.get_points(&CONFIG)),
                 "Expected I piece to collide against the board wall",
             )
+        }
+    }
+
+    mod can_place {
+        use crate::piece::{Piece, PieceKind};
+
+        use super::*;
+
+        #[test]
+        fn can_place_i_piece_on_floor() {
+            let board = Board::empty_board();
+
+            let piece = Piece {
+                position: Point { x: 3, y: -2 },
+                ..Piece::spawn(&PieceKind::I, &CONFIG)
+            };
+
+            assert!(board.can_place(&piece.get_points(&CONFIG)));
+        }
+
+        #[test]
+        fn cannot_place_i_piece_in_air() {
+            let board = Board::empty_board();
+
+            let piece = Piece {
+                position: Point { x: 3, y: -1 },
+                ..Piece::spawn(&PieceKind::I, &CONFIG)
+            };
+
+            assert!(!board.can_place(&piece.get_points(&CONFIG)));
+        }
+
+        #[test]
+        fn can_place_j_piece_on_filled_cell() {
+            let mut board = Board::empty_board();
+            board.fill(&Point { x: 0, y: 0 });
+            board.fill(&Point { x: 0, y: 1 });
+
+            let piece = Piece {
+                position: Point { x: 0, y: 1 },
+                ..Piece::spawn(&PieceKind::J, &CONFIG)
+            };
+
+            assert!(board.can_place(&piece.get_points(&CONFIG)));
         }
     }
 
