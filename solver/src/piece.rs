@@ -3,7 +3,7 @@ use crate::{
     point::Point,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceKind {
     I,
     J,
@@ -18,13 +18,13 @@ impl PieceKind {
     pub fn get_spawn_point(&self, config: &Config) -> Point<isize> {
         match config.rotation_system {
             RotationSystem::SRS => match self {
-                PieceKind::I => Point { x: 3, y: 21 },
-                PieceKind::J => Point { x: 3, y: 21 },
-                PieceKind::L => Point { x: 3, y: 21 },
-                PieceKind::O => Point { x: 3, y: 21 },
-                PieceKind::S => Point { x: 3, y: 21 },
-                PieceKind::T => Point { x: 3, y: 21 },
-                PieceKind::Z => Point { x: 3, y: 21 },
+                PieceKind::I => Point { x: 3, y: 18 },
+                PieceKind::J => Point { x: 3, y: 19 },
+                PieceKind::L => Point { x: 3, y: 19 },
+                PieceKind::O => Point { x: 3, y: 19 },
+                PieceKind::S => Point { x: 3, y: 19 },
+                PieceKind::T => Point { x: 3, y: 19 },
+                PieceKind::Z => Point { x: 3, y: 19 },
             },
         }
     }
@@ -96,7 +96,7 @@ impl PieceKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Piece {
     pub kind: PieceKind,
     /**
@@ -116,7 +116,7 @@ impl Piece {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Orientation {
     North,
     South,
