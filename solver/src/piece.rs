@@ -1,6 +1,7 @@
 use crate::{
     config::{Config, RotationSystem},
     point::Point,
+    rotation::Orientation,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -114,14 +115,6 @@ impl Piece {
             orientation: Orientation::North,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Orientation {
-    North,
-    South,
-    East,
-    West,
 }
 
 /**

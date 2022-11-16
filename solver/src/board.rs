@@ -460,7 +460,8 @@ mod tests {
     }
 
     mod can_fit {
-        use crate::piece::{Orientation, Piece, PieceKind};
+        use crate::piece::{Piece, PieceKind};
+        use crate::rotation::Orientation;
 
         use super::*;
 
@@ -574,7 +575,8 @@ mod tests {
     }
 
     mod fill_piece_points {
-        use crate::piece::{Orientation, Piece, PieceKind};
+        use crate::piece::{Piece, PieceKind};
+        use crate::rotation::Orientation;
 
         use super::*;
 
