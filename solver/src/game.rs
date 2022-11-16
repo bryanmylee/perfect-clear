@@ -33,6 +33,9 @@ impl State {
     pub fn reduce(&self, action: &Action, config: &Config) -> Result<State, ReduceError> {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
+            Action::GuessNext(piece_kind, with_probability) => {
+                self.with_guessed_next(config, piece_kind, *with_probability)
+            }
             Action::Place => self.with_placed_piece(config),
         }
     }
@@ -61,6 +64,21 @@ impl State {
         Ok(new_state)
     }
 
+    fn with_guessed_next(
+        &self,
+        config: &Config,
+        piece_kind: &PieceKind,
+        with_probability: f32,
+    ) -> Result<State, ReduceError> {
+        let mut new_state = self.clone();
+
+        new_state.piece = Some(Piece::spawn(piece_kind, config));
+
+        new_state.current_probability *= with_probability;
+
+        Ok(new_state)
+    }
+
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
         let mut new_state = self.clone();
 
@@ -85,6 +103,7 @@ impl State {
 #[derive(Debug, Clone)]
 pub enum Action {
     ConsumeQueue,
+    GuessNext(PieceKind, f32),
     Place,
 }
 
@@ -248,6 +267,25 @@ mod tests {
                     None,
                 ]
             );
+        }
+    }
+
+    mod with_guessed_next {
+        use super::*;
+
+        #[test]
+        fn updates_probability_and_sets_piece() {
+            let state = State::initial();
+
+            let next_state = state.reduce(&Action::GuessNext(PieceKind::J, 0.5), &CONFIG);
+
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
+
+            assert!(next_state.piece.is_some());
+            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
+
+            assert_eq!(next_state.current_probability, 0.5);
         }
     }
 
