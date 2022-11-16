@@ -6,7 +6,7 @@ use crate::piece::{Piece, PieceKind};
 pub struct State {
     board: Board,
     piece: Option<Piece>,
-    hold: Option<PieceKind>,
+    hold_kind: Option<PieceKind>,
     is_hold_used: bool,
     queue: [Option<PieceKind>; 7], // fixed queue size to reduce heap allocations
     seen: [Option<PieceKind>; 14], // only 2-bags needed at most to determine next piece probability
@@ -19,7 +19,7 @@ impl State {
         State {
             board: Board::empty_board(),
             piece: None,
-            hold: None,
+            hold_kind: None,
             is_hold_used: false,
             queue: [None; 7],
             seen: [None; 14],
@@ -36,6 +36,7 @@ impl State {
             Action::GuessNext(piece_kind, with_probability) => {
                 self.with_guessed_next(config, piece_kind, *with_probability)
             }
+            Action::Hold(switch_hold) => self.with_hold_used(config, *switch_hold),
             Action::Place => self.with_placed_piece(config),
         }
     }
@@ -79,6 +80,33 @@ impl State {
         Ok(new_state)
     }
 
+    fn with_hold_used(&self, config: &Config, switch_hold: bool) -> Result<State, ReduceError> {
+        let mut new_state = self.clone();
+
+        if self.is_hold_used {
+            return Err(ReduceError::Hold(HoldError::NotAvailable));
+        }
+
+        new_state.is_hold_used = true;
+
+        if !switch_hold {
+            return Ok(new_state);
+        }
+
+        let Some(hold_kind) = new_state.hold_kind else {
+            return Err(ReduceError::Hold(HoldError::NoHoldPiece));
+        };
+
+        let Some(active) = new_state.piece else {
+            return Err(ReduceError::Hold(HoldError::NoActivePiece))
+        };
+
+        new_state.hold_kind = Some(active.kind);
+        new_state.piece = Some(Piece::spawn(&hold_kind, config));
+
+        Ok(new_state)
+    }
+
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
         let mut new_state = self.clone();
 
@@ -104,6 +132,7 @@ impl State {
 pub enum Action {
     ConsumeQueue,
     GuessNext(PieceKind, f32),
+    Hold(bool),
     Place,
 }
 
@@ -111,6 +140,7 @@ pub enum Action {
 pub enum ReduceError {
     Place(PlaceError),
     ConsumeQueue(ConsumeQueueError),
+    Hold(HoldError),
     GameOver,
 }
 
@@ -123,6 +153,13 @@ pub enum PlaceError {
 #[derive(Debug, PartialEq)]
 pub enum ConsumeQueueError {
     QueueEmpty,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum HoldError {
+    NotAvailable,
+    NoHoldPiece,
+    NoActivePiece,
 }
 
 #[derive(Debug, Clone)]
@@ -286,6 +323,70 @@ mod tests {
             assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
 
             assert_eq!(next_state.current_probability, 0.5);
+        }
+    }
+
+    mod with_hold_used {
+        use super::*;
+
+        #[test]
+        fn invalid_if_no_active_piece() {
+            let state = State {
+                hold_kind: Some(PieceKind::J),
+                ..State::initial()
+            };
+
+            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+
+            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoActivePiece)));
+        }
+
+        #[test]
+        fn invalid_if_no_hold_piece() {
+            let state = State {
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..State::initial()
+            };
+
+            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+
+            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
+        }
+
+        #[test]
+        fn consumes_hold_and_swaps_hold() {
+            let state = State {
+                hold_kind: Some(PieceKind::J),
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..State::initial()
+            };
+
+            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+
+            assert!(new_state.is_ok());
+            let new_state = new_state.unwrap();
+
+            assert!(new_state.is_hold_used);
+            assert_eq!(new_state.hold_kind.unwrap(), PieceKind::I);
+            assert_eq!(new_state.piece.as_ref().unwrap().kind, PieceKind::J);
+        }
+
+        #[test]
+        fn consumes_hold_without_swapping_hold() {
+            let state = State {
+                hold_kind: Some(PieceKind::J),
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..State::initial()
+            };
+
+            let new_state = state.reduce(&Action::Hold(false), &CONFIG);
+
+            assert!(new_state.is_ok());
+            let new_state = new_state.unwrap();
+
+            assert!(new_state.is_hold_used);
+            assert_eq!(new_state.hold_kind.unwrap(), PieceKind::J);
+            assert_eq!(new_state.piece.as_ref().unwrap().kind, PieceKind::I);
         }
     }
 
