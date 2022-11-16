@@ -119,7 +119,6 @@ impl Board {
 
     pub fn can_place(&self, piece_points: &PiecePoints) -> bool {
         let offset = Point { x: 0, y: -1 };
-        println!("{:?}", piece_points);
         piece_points
             .iter()
             .any(|point| self.is_filled(&(*point + offset)))
