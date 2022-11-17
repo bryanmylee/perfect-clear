@@ -15,6 +15,8 @@ pub enum PieceKind {
     Z,
 }
 
+type PieceOffsets = [Point<isize>; 4];
+
 impl PieceKind {
     pub fn get_spawn_point(&self, config: &Config) -> Point<isize> {
         match config.rotation_system {
@@ -30,14 +32,14 @@ impl PieceKind {
         }
     }
 
-    fn get_unoriented_offsets(&self, config: &Config) -> PieceOffsets {
-        PieceOffsets {
+    fn get_unoriented_offset_box(&self, config: &Config) -> PieceOffsetBox {
+        PieceOffsetBox {
             offsets: self.get_position_offsets(config),
             bounding_box_size: self.get_bounding_box_size(config),
         }
     }
 
-    fn get_position_offsets(&self, _config: &Config) -> [Point<isize>; 4] {
+    fn get_position_offsets(&self, _config: &Config) -> PieceOffsets {
         match self {
             PieceKind::I => [
                 Point { x: 0, y: 2 },
@@ -120,8 +122,8 @@ impl Piece {
 /**
 Pieces can be represented by four points from the bottom-left corner of a bounding box.
 */
-struct PieceOffsets {
-    offsets: [Point<isize>; 4],
+struct PieceOffsetBox {
+    offsets: PieceOffsets,
     bounding_box_size: usize,
 }
 
@@ -132,32 +134,31 @@ pub type PiecePoints = [Point<isize>; 4];
 
 impl Piece {
     pub fn get_points(&self, config: &Config) -> PiecePoints {
-        let mut offsets = self.kind.get_unoriented_offsets(config);
-        orient_offsets(&mut offsets, &self.orientation);
-        for offset in offsets.offsets.iter_mut() {
-            *offset += self.position;
-        }
-        offsets.offsets
+        let mut unoriented_offset_box = self.kind.get_unoriented_offset_box(config);
+        orient_offset_box(&mut unoriented_offset_box, &self.orientation);
+        unoriented_offset_box
+            .offsets
+            .map(|offset| offset + self.position)
     }
 }
 
-fn orient_offsets(unoriented_offsets: &mut PieceOffsets, orientation: &Orientation) {
-    let size_minus_one = (unoriented_offsets.bounding_box_size - 1) as isize;
+fn orient_offset_box(unoriented_offset_box: &mut PieceOffsetBox, orientation: &Orientation) {
+    let size_minus_one = (unoriented_offset_box.bounding_box_size - 1) as isize;
     match orientation {
         Orientation::North => {}
         Orientation::South => {
-            for offset in unoriented_offsets.offsets.iter_mut() {
+            for offset in unoriented_offset_box.offsets.iter_mut() {
                 offset.x = size_minus_one - offset.x;
                 offset.y = size_minus_one - offset.y;
             }
         }
         Orientation::East => {
-            for offset in unoriented_offsets.offsets.iter_mut() {
+            for offset in unoriented_offset_box.offsets.iter_mut() {
                 (offset.x, offset.y) = (offset.y, size_minus_one - offset.x);
             }
         }
         Orientation::West => {
-            for offset in unoriented_offsets.offsets.iter_mut() {
+            for offset in unoriented_offset_box.offsets.iter_mut() {
                 (offset.x, offset.y) = (size_minus_one - offset.y, offset.x);
             }
         }
@@ -203,72 +204,72 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 3, y: 2 }));
+                let mut offset_box = PieceKind::I.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 3, y: 2 }));
             }
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::J.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::L.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::O.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
+                let mut offset_box = PieceKind::S.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
             }
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::T.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::North);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::Z.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::North);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
         }
 
@@ -277,72 +278,72 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 3, y: 1 }));
+                let mut offset_box = PieceKind::I.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 3, y: 1 }));
             }
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 0 }));
+                let mut offset_box = PieceKind::J.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 0 }));
             }
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 0 }));
+                let mut offset_box = PieceKind::L.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 0 }));
             }
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::O.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 0 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::S.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 0 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::T.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::South);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 0 }));
+                let mut offset_box = PieceKind::Z.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::South);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 0 }));
             }
         }
 
@@ -351,72 +352,72 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 3 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 0 }));
+                let mut offset_box = PieceKind::I.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 3 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 0 }));
             }
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::J.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 0 }));
+                let mut offset_box = PieceKind::L.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 0 }));
             }
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::O.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 0 }));
+                let mut offset_box = PieceKind::S.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 0 }));
             }
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::T.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::East);
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::Z.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::East);
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
         }
 
@@ -425,72 +426,72 @@ mod tests {
 
             #[test]
             fn i_piece() {
-                let mut piece_offsets = PieceKind::I.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 3 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::I.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 3 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn j_piece() {
-                let mut piece_offsets = PieceKind::J.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 0 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::J.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 0 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn l_piece() {
-                let mut piece_offsets = PieceKind::L.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::L.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn o_piece() {
-                let mut piece_offsets = PieceKind::O.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 2, y: 1 }));
+                let mut offset_box = PieceKind::O.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 2, y: 1 }));
             }
 
             #[test]
             fn s_piece() {
-                let mut piece_offsets = PieceKind::S.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::S.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn t_piece() {
-                let mut piece_offsets = PieceKind::T.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 0 }));
+                let mut offset_box = PieceKind::T.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 0 }));
             }
 
             #[test]
             fn z_piece() {
-                let mut piece_offsets = PieceKind::Z.get_unoriented_offsets(&CONFIG);
-                orient_offsets(&mut piece_offsets, &Orientation::West);
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 2 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 1, y: 1 }));
-                assert!(piece_offsets.offsets.contains(&Point { x: 0, y: 0 }));
+                let mut offset_box = PieceKind::Z.get_unoriented_offset_box(&CONFIG);
+                orient_offset_box(&mut offset_box, &Orientation::West);
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 2 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 1, y: 1 }));
+                assert!(offset_box.offsets.contains(&Point { x: 0, y: 0 }));
             }
         }
     }
