@@ -1,6 +1,7 @@
 use crate::board::Board;
-use crate::config::Config;
+use crate::config::{srs, Config};
 use crate::piece::{Piece, PieceKind};
+use crate::rotation::Rotation;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
@@ -37,6 +38,7 @@ impl State {
                 self.with_guessed_next(config, piece_kind, *with_probability)
             }
             Action::Hold(switch_hold) => self.with_hold_used(config, *switch_hold),
+            Action::Move(mov) => self.with_move(config, *mov),
             Action::Place => self.with_placed_piece(config),
         }
     }
@@ -98,13 +100,65 @@ impl State {
         };
 
         let Some(active) = new_state.piece else {
-            return Err(ReduceError::Hold(HoldError::NoActivePiece))
+            return Err(ReduceError::Hold(HoldError::NoPiece))
         };
 
         new_state.hold_kind = Some(active.kind);
         new_state.piece = Some(Piece::spawn(&hold_kind, config));
 
         Ok(new_state)
+    }
+
+    fn with_move(&self, config: &Config, mov: Move) -> Result<State, ReduceError> {
+        match mov {
+            Move::Rotate(rotation) => self.with_rotation(config, &rotation),
+            Move::Translate(direction) => self.with_translation(config, &direction),
+        }
+    }
+
+    fn with_rotation(&self, config: &Config, rotation: &Rotation) -> Result<State, ReduceError> {
+        let mut new_state = self.clone();
+
+        let Some(piece) = new_state.piece.as_mut() else {
+            return Err(ReduceError::Move(MoveError::NoPiece));
+        };
+
+        let from_orientation = piece.orientation;
+        piece.orientation = from_orientation.rotated(rotation);
+
+        let piece_points = piece.get_points(config);
+
+        if new_state.board.can_fit(&piece_points) {
+            return Ok(new_state);
+        }
+
+        let Some(kick_table) = srs::kick_table(&piece.kind, &from_orientation, &piece.orientation) else {
+            return Err(ReduceError::Move(MoveError::InvalidMove));
+        };
+
+        for kick in kick_table {
+            let kicked_points = piece_points.map(|point| point + kick);
+            if new_state.board.can_fit(&kicked_points) {
+                piece.position += kick;
+                return Ok(new_state);
+            }
+        }
+
+        Err(ReduceError::Move(MoveError::InvalidMove))
+    }
+
+    fn with_translation(
+        &self,
+        config: &Config,
+        direction: &Direction,
+    ) -> Result<State, ReduceError> {
+        let mut new_state = self.clone();
+
+        let Some(piece) = new_state.piece else {
+            return Err(ReduceError::Move(MoveError::NoPiece));
+        };
+
+        Err(ReduceError::Move(MoveError::InvalidMove))
     }
 
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
@@ -128,11 +182,12 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     ConsumeQueue,
     GuessNext(PieceKind, f32),
     Hold(bool),
+    Move(Move),
     Place,
 }
 
@@ -141,6 +196,7 @@ pub enum ReduceError {
     Place(PlaceError),
     ConsumeQueue(ConsumeQueueError),
     Hold(HoldError),
+    Move(MoveError),
     GameOver,
 }
 
@@ -159,17 +215,22 @@ pub enum ConsumeQueueError {
 pub enum HoldError {
     NotAvailable,
     NoHoldPiece,
-    NoActivePiece,
+    NoPiece,
 }
 
-#[derive(Debug, Clone)]
-pub enum Rotation {
-    Clockwise,
-    AntiClockwise,
-    Half,
+#[derive(Debug, PartialEq)]
+pub enum MoveError {
+    NoPiece,
+    InvalidMove,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Move {
+    Rotate(Rotation),
+    Translate(Direction),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
     Left,
     Right,
@@ -338,7 +399,7 @@ mod tests {
 
             let new_state = state.reduce(&Action::Hold(true), &CONFIG);
 
-            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoActivePiece)));
+            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoPiece)));
         }
 
         #[test]
@@ -387,6 +448,280 @@ mod tests {
             assert!(new_state.is_hold_used);
             assert_eq!(new_state.hold_kind.unwrap(), PieceKind::J);
             assert_eq!(new_state.piece.as_ref().unwrap().kind, PieceKind::I);
+        }
+    }
+
+    mod with_rotation {
+        use crate::rotation::Orientation;
+
+        use super::*;
+
+        mod i_piece {
+            use super::*;
+
+            #[test]
+            fn no_kick() {
+                let state = State {
+                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    ..State::initial()
+                };
+
+                let original_position = state.piece.as_ref().unwrap().position;
+
+                let next_state =
+                    state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
+
+                assert!(next_state.is_ok());
+                let next_state = next_state.unwrap();
+
+                assert!(next_state.piece.is_some());
+                assert_eq!(
+                    next_state.piece.as_ref().unwrap().orientation,
+                    Orientation::East
+                );
+                assert_eq!(
+                    next_state.piece.as_ref().unwrap().position,
+                    original_position,
+                );
+            }
+
+            mod north_and_east {
+                use crate::point::Point;
+
+                use super::*;
+
+                #[test]
+                fn kick_one() {
+                    let mut board = Board::filled_board();
+
+                    board.empty(&Point { x: 3, y: 2 });
+                    board.empty(&Point { x: 4, y: 2 });
+                    board.empty(&Point { x: 5, y: 2 });
+                    board.empty(&Point { x: 6, y: 2 });
+
+                    board.empty(&Point { x: 3, y: 0 });
+                    board.empty(&Point { x: 3, y: 1 });
+                    board.empty(&Point { x: 3, y: 2 });
+                    board.empty(&Point { x: 3, y: 3 });
+
+                    let state = State {
+                        board,
+                        piece: Some(Piece {
+                            position: Point { x: 3, y: 0 },
+                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                        }),
+                        ..State::initial()
+                    };
+
+                    let next_state =
+                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::East
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 1, y: 0 },
+                    );
+
+                    let next_state = next_state.reduce(
+                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
+                        &CONFIG,
+                    );
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::North
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 3, y: 0 }
+                    );
+                }
+
+                #[test]
+                fn kick_two() {
+                    let mut board = Board::filled_board();
+
+                    board.empty(&Point { x: 3, y: 2 });
+                    board.empty(&Point { x: 4, y: 2 });
+                    board.empty(&Point { x: 5, y: 2 });
+                    board.empty(&Point { x: 6, y: 2 });
+
+                    board.empty(&Point { x: 6, y: 0 });
+                    board.empty(&Point { x: 6, y: 1 });
+                    board.empty(&Point { x: 6, y: 2 });
+                    board.empty(&Point { x: 6, y: 3 });
+
+                    let state = State {
+                        board,
+                        piece: Some(Piece {
+                            position: Point { x: 3, y: 0 },
+                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                        }),
+                        ..State::initial()
+                    };
+
+                    let next_state =
+                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::East
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 4, y: 0 },
+                    );
+
+                    let next_state = next_state.reduce(
+                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
+                        &CONFIG,
+                    );
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::North
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 3, y: 0 }
+                    );
+                }
+
+                #[test]
+                fn kick_three() {
+                    let mut board = Board::filled_board();
+
+                    board.empty(&Point { x: 3, y: 3 });
+                    board.empty(&Point { x: 4, y: 3 });
+                    board.empty(&Point { x: 5, y: 3 });
+                    board.empty(&Point { x: 6, y: 3 });
+
+                    board.empty(&Point { x: 3, y: 0 });
+                    board.empty(&Point { x: 3, y: 1 });
+                    board.empty(&Point { x: 3, y: 2 });
+                    board.empty(&Point { x: 3, y: 3 });
+
+                    let state = State {
+                        board,
+                        piece: Some(Piece {
+                            position: Point { x: 3, y: 1 },
+                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                        }),
+                        ..State::initial()
+                    };
+
+                    let next_state =
+                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::East
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 1, y: 0 },
+                    );
+
+                    let next_state = next_state.reduce(
+                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
+                        &CONFIG,
+                    );
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::North
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 3, y: 1 }
+                    );
+                }
+
+                #[test]
+                fn kick_four() {
+                    let mut board = Board::filled_board();
+
+                    board.empty(&Point { x: 3, y: 2 });
+                    board.empty(&Point { x: 4, y: 2 });
+                    board.empty(&Point { x: 5, y: 2 });
+                    board.empty(&Point { x: 6, y: 2 });
+
+                    board.empty(&Point { x: 6, y: 2 });
+                    board.empty(&Point { x: 6, y: 3 });
+                    board.empty(&Point { x: 6, y: 4 });
+                    board.empty(&Point { x: 6, y: 5 });
+
+                    let state = State {
+                        board,
+                        piece: Some(Piece {
+                            position: Point { x: 3, y: 0 },
+                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                        }),
+                        ..State::initial()
+                    };
+
+                    let next_state =
+                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::East
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 4, y: 2 },
+                    );
+
+                    let next_state = next_state.reduce(
+                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
+                        &CONFIG,
+                    );
+
+                    assert!(next_state.is_ok());
+                    let next_state = next_state.unwrap();
+
+                    assert!(next_state.piece.is_some());
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().orientation,
+                        Orientation::North
+                    );
+                    assert_eq!(
+                        next_state.piece.as_ref().unwrap().position,
+                        Point { x: 3, y: 0 }
+                    );
+                }
+            }
         }
     }
 
