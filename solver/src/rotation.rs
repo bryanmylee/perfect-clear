@@ -7,7 +7,7 @@ pub enum Orientation {
 }
 
 impl Orientation {
-    pub fn rotated(&self, by: Rotation) -> Orientation {
+    pub fn rotated(&self, by: &Rotation) -> Orientation {
         match self {
             Self::North => match by {
                 Rotation::Clockwise => Self::East,
