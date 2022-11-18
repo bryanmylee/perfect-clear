@@ -22,7 +22,7 @@ impl fmt::Debug for Board {
         for y in (0..24).map(|y| 23 - y) {
             board_result.push_str(&format!("\n{:0>2} ", y));
             for x in 0..10 {
-                board_result.push(if self.is_filled(&Point { x, y }) {
+                board_result.push(if self.is_filled(&Point::new(x, y)) {
                     'x'
                 } else {
                     '-'
@@ -118,7 +118,7 @@ impl Board {
     }
 
     pub fn can_place(&self, piece_points: &PiecePoints) -> bool {
-        let offset = Point { x: 0, y: -1 };
+        let offset = Point::new(0, -1);
         piece_points
             .iter()
             .any(|point| self.is_filled(&(*point + offset)))
@@ -144,9 +144,9 @@ mod tests {
     fn assert_only_filled(board: &Board, fills: Vec<Point<isize>>) {
         for x in 0..10 {
             for y in 0..24 {
-                let is_filled = fills.contains(&Point { x, y });
+                let is_filled = fills.contains(&Point::new(x, y));
                 assert_eq!(
-                    board.is_filled(&Point { x, y }),
+                    board.is_filled(&Point::new(x, y)),
                     is_filled,
                     "Expected board to be {} at ({}, {})",
                     if is_filled { "filled" } else { "empty" },
@@ -160,9 +160,9 @@ mod tests {
     fn assert_only_emptied(board: &Board, empties: Vec<Point<isize>>) {
         for x in 0..10 {
             for y in 0..24 {
-                let is_empty = empties.contains(&Point { x, y });
+                let is_empty = empties.contains(&Point::new(x, y));
                 assert_eq!(
-                    !board.is_filled(&Point { x, y }),
+                    !board.is_filled(&Point::new(x, y)),
                     is_empty,
                     "Expected board to be {} at ({}, {})",
                     if is_empty { "empty" } else { "filled" },
@@ -190,30 +190,30 @@ mod tests {
             assert_only_filled(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 1, y: 0 },
-                    Point { x: 3, y: 0 },
-                    Point { x: 4, y: 0 },
-                    Point { x: 5, y: 0 },
-                    Point { x: 6, y: 0 },
-                    Point { x: 8, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 1 },
-                    Point { x: 8, y: 1 },
-                    Point { x: 9, y: 1 },
-                    Point { x: 0, y: 2 },
-                    Point { x: 0, y: 6 },
-                    Point { x: 1, y: 6 },
-                    Point { x: 3, y: 6 },
-                    Point { x: 4, y: 6 },
-                    Point { x: 5, y: 6 },
-                    Point { x: 6, y: 6 },
-                    Point { x: 8, y: 6 },
-                    Point { x: 9, y: 6 },
-                    Point { x: 0, y: 7 },
-                    Point { x: 8, y: 7 },
-                    Point { x: 9, y: 7 },
-                    Point { x: 0, y: 8 },
+                    Point::new(0, 0),
+                    Point::new(1, 0),
+                    Point::new(3, 0),
+                    Point::new(4, 0),
+                    Point::new(5, 0),
+                    Point::new(6, 0),
+                    Point::new(8, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 1),
+                    Point::new(8, 1),
+                    Point::new(9, 1),
+                    Point::new(0, 2),
+                    Point::new(0, 6),
+                    Point::new(1, 6),
+                    Point::new(3, 6),
+                    Point::new(4, 6),
+                    Point::new(5, 6),
+                    Point::new(6, 6),
+                    Point::new(8, 6),
+                    Point::new(9, 6),
+                    Point::new(0, 7),
+                    Point::new(8, 7),
+                    Point::new(9, 7),
+                    Point::new(0, 8),
                 ],
             );
         }
@@ -224,12 +224,12 @@ mod tests {
 
             for y in 0..24 {
                 assert!(
-                    board.is_filled(&Point { x: -1, y }),
+                    board.is_filled(&Point::new(-1, y)),
                     "Expected left wall to be filled on line {}",
                     y
                 );
                 assert!(
-                    board.is_filled(&Point { x: 10, y }),
+                    board.is_filled(&Point::new(10, y)),
                     "Expected right wall to be filled on line {}",
                     y
                 );
@@ -242,7 +242,7 @@ mod tests {
 
             for x in 0..10 {
                 assert!(
-                    board.is_filled(&Point { x, y: -1 }),
+                    board.is_filled(&Point::new(x, -1)),
                     "Expected floor to be filled on column {}",
                     x
                 );
@@ -257,55 +257,51 @@ mod tests {
         fn fills_cells() {
             let mut board = Board::empty_board();
 
-            board.fill(&Point { x: 0, y: 0 });
-            assert_only_filled(&board, vec![Point { x: 0, y: 0 }]);
+            board.fill(&Point::new(0, 0));
+            assert_only_filled(&board, vec![Point::new(0, 0)]);
 
-            board.fill(&Point { x: 9, y: 0 });
-            assert_only_filled(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
+            board.fill(&Point::new(9, 0));
+            assert_only_filled(&board, vec![Point::new(0, 0), Point::new(9, 0)]);
 
-            board.fill(&Point { x: 0, y: 10 });
+            board.fill(&Point::new(0, 10));
+            assert_only_filled(
+                &board,
+                vec![Point::new(0, 0), Point::new(9, 0), Point::new(0, 10)],
+            );
+
+            board.fill(&Point::new(9, 10));
             assert_only_filled(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
                 ],
             );
 
-            board.fill(&Point { x: 9, y: 10 });
+            board.fill(&Point::new(0, 20));
             assert_only_filled(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
+                    Point::new(0, 20),
                 ],
             );
 
-            board.fill(&Point { x: 0, y: 20 });
+            board.fill(&Point::new(9, 20));
             assert_only_filled(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
-                    Point { x: 0, y: 20 },
-                ],
-            );
-
-            board.fill(&Point { x: 9, y: 20 });
-            assert_only_filled(
-                &board,
-                vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
-                    Point { x: 0, y: 20 },
-                    Point { x: 9, y: 20 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
+                    Point::new(0, 20),
+                    Point::new(9, 20),
                 ],
             );
         }
@@ -318,55 +314,51 @@ mod tests {
         fn empties_cells() {
             let mut board = Board::filled_board();
 
-            board.empty(&Point { x: 0, y: 0 });
-            assert_only_emptied(&board, vec![Point { x: 0, y: 0 }]);
+            board.empty(&Point::new(0, 0));
+            assert_only_emptied(&board, vec![Point::new(0, 0)]);
 
-            board.empty(&Point { x: 9, y: 0 });
-            assert_only_emptied(&board, vec![Point { x: 0, y: 0 }, Point { x: 9, y: 0 }]);
+            board.empty(&Point::new(9, 0));
+            assert_only_emptied(&board, vec![Point::new(0, 0), Point::new(9, 0)]);
 
-            board.empty(&Point { x: 0, y: 10 });
+            board.empty(&Point::new(0, 10));
+            assert_only_emptied(
+                &board,
+                vec![Point::new(0, 0), Point::new(9, 0), Point::new(0, 10)],
+            );
+
+            board.empty(&Point::new(9, 10));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
                 ],
             );
 
-            board.empty(&Point { x: 9, y: 10 });
+            board.empty(&Point::new(0, 20));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
+                    Point::new(0, 20),
                 ],
             );
 
-            board.empty(&Point { x: 0, y: 20 });
+            board.empty(&Point::new(9, 20));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
-                    Point { x: 0, y: 20 },
-                ],
-            );
-
-            board.empty(&Point { x: 9, y: 20 });
-            assert_only_emptied(
-                &board,
-                vec![
-                    Point { x: 0, y: 0 },
-                    Point { x: 9, y: 0 },
-                    Point { x: 0, y: 10 },
-                    Point { x: 9, y: 10 },
-                    Point { x: 0, y: 20 },
-                    Point { x: 9, y: 20 },
+                    Point::new(0, 0),
+                    Point::new(9, 0),
+                    Point::new(0, 10),
+                    Point::new(9, 10),
+                    Point::new(0, 20),
+                    Point::new(9, 20),
                 ],
             );
         }
@@ -479,7 +471,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point { x: 3, y: 21 },
+                position: Point::new(3, 21),
             };
 
             assert!(
@@ -503,7 +495,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point { x: 3, y: 21 },
+                position: Point::new(3, 21),
             };
 
             assert!(
@@ -520,7 +512,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point { x: -1, y: 0 },
+                position: Point::new(-1, 0),
             };
 
             assert!(
@@ -540,7 +532,7 @@ mod tests {
             let board = Board::empty_board();
 
             let piece = Piece {
-                position: Point { x: 3, y: -2 },
+                position: Point::new(3, -2),
                 ..Piece::spawn(&PieceKind::I, &CONFIG)
             };
 
@@ -552,7 +544,7 @@ mod tests {
             let board = Board::empty_board();
 
             let piece = Piece {
-                position: Point { x: 3, y: -1 },
+                position: Point::new(3, -1),
                 ..Piece::spawn(&PieceKind::I, &CONFIG)
             };
 
@@ -562,11 +554,11 @@ mod tests {
         #[test]
         fn can_place_j_piece_on_filled_cell() {
             let mut board = Board::empty_board();
-            board.fill(&Point { x: 0, y: 0 });
-            board.fill(&Point { x: 0, y: 1 });
+            board.fill(&Point::new(0, 0));
+            board.fill(&Point::new(0, 1));
 
             let piece = Piece {
-                position: Point { x: 0, y: 1 },
+                position: Point::new(0, 1),
                 ..Piece::spawn(&PieceKind::J, &CONFIG)
             };
 
@@ -586,7 +578,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point { x: 3, y: 21 },
+                position: Point::new(3, 21),
             };
             board.fill_piece_points(&piece.get_points(&CONFIG));
 

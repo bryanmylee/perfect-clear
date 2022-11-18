@@ -4,16 +4,19 @@ pub struct Point<T> {
     pub y: T,
 }
 
+impl<T> Point<T> {
+    pub fn new(x: T, y: T) -> Point<T> {
+        Point { x, y }
+    }
+}
+
 use std::ops::{Add, AddAssign, Sub};
 
 impl<T: Add<Output = T>> Add for Point<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Point<T> {
-        Point {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
+        Point::new(self.x + other.x, self.y + other.y)
     }
 }
 
@@ -28,9 +31,6 @@ impl<T: Sub<Output = T>> Sub for Point<T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self::Output {
-        Point {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
+        Point::new(self.x - other.x, self.y - other.y)
     }
 }
