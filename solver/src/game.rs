@@ -176,23 +176,25 @@ impl State {
 
         let direction_offset = direction.get_offset();
 
-        let moved_points = piece
-            .get_points(config)
-            .map(|point| point + direction_offset);
+        let next_piece = Piece {
+            position: piece.position + direction_offset,
+            ..piece.clone()
+        };
 
-        if !self.board.can_fit(&moved_points) {
+        let next_piece_points = next_piece.get_points(config);
+
+        if !self.board.can_fit(&next_piece_points) {
             return Err(ReduceError::Move(MoveError::InvalidMove));
         }
 
-        let mut new_state = self.clone();
-
-        new_state.piece.as_mut().unwrap().position += direction_offset;
-
-        Ok(new_state)
+        Ok(State {
+            piece: Some(next_piece),
+            ..self.clone()
+        })
     }
 
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
+        let mut next_state = self.clone();
 
         let Some(piece) = &self.piece else {
             return Err(ReduceError::Place(PlaceError::NoPiece));
@@ -204,11 +206,11 @@ impl State {
             return Err(ReduceError::Place(PlaceError::PieceInAir));
         }
 
-        new_state.board.fill_piece_points(&piece_points);
+        next_state.board.fill_piece_points(&piece_points);
 
-        new_state.piece = None;
+        next_state.piece = None;
 
-        Ok(new_state)
+        Ok(next_state)
     }
 }
 
@@ -458,9 +460,9 @@ mod tests {
                 ..State::initial()
             };
 
-            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
 
-            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoPiece)));
+            assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoPiece)));
         }
 
         #[test]
@@ -470,9 +472,9 @@ mod tests {
                 ..State::initial()
             };
 
-            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
 
-            assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
+            assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
         }
 
         #[test]
@@ -506,14 +508,14 @@ mod tests {
                 ..State::initial()
             };
 
-            let new_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
 
-            assert!(new_state.is_ok());
-            let new_state = new_state.unwrap();
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
 
-            assert!(new_state.is_hold_used);
-            assert_eq!(new_state.hold_kind.unwrap(), PieceKind::I);
-            assert_eq!(new_state.piece.as_ref().unwrap().kind, PieceKind::J);
+            assert!(next_state.is_hold_used);
+            assert_eq!(next_state.hold_kind.unwrap(), PieceKind::I);
+            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
         }
 
         #[test]
@@ -524,14 +526,14 @@ mod tests {
                 ..State::initial()
             };
 
-            let new_state = state.reduce(&Action::Hold(false), &CONFIG);
+            let next_state = state.reduce(&Action::Hold(false), &CONFIG);
 
-            assert!(new_state.is_ok());
-            let new_state = new_state.unwrap();
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
 
-            assert!(new_state.is_hold_used);
-            assert_eq!(new_state.hold_kind.unwrap(), PieceKind::J);
-            assert_eq!(new_state.piece.as_ref().unwrap().kind, PieceKind::I);
+            assert!(next_state.is_hold_used);
+            assert_eq!(next_state.hold_kind.unwrap(), PieceKind::J);
+            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::I);
         }
     }
 
@@ -806,6 +808,51 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    mod with_translation {
+        use super::*;
+
+        #[test]
+        fn moves_piece() {
+            let state = State {
+                piece: Some(Piece {
+                    position: Point::new(3, -1),
+                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                }),
+                ..State::initial()
+            };
+
+            let next_state = state.reduce(&Action::Move(Move::Translate(Direction::Down)), &CONFIG);
+
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
+
+            let piece = next_state.piece.as_ref().unwrap();
+            assert_eq!(piece.position, Point::new(3, -2));
+
+            let next_state =
+                next_state.reduce(&Action::Move(Move::Translate(Direction::Left)), &CONFIG);
+
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
+
+            let piece = next_state.piece.as_ref().unwrap();
+            assert_eq!(piece.position, Point::new(2, -2));
+
+            let next_state =
+                next_state.reduce(&Action::Move(Move::Translate(Direction::Right)), &CONFIG);
+
+            assert!(next_state.is_ok());
+            let next_state = next_state.unwrap();
+
+            let piece = next_state.piece.as_ref().unwrap();
+            assert_eq!(piece.position, Point::new(3, -2));
+
+            let next_state =
+                next_state.reduce(&Action::Move(Move::Translate(Direction::Down)), &CONFIG);
+            assert_eq!(next_state, Err(ReduceError::Move(MoveError::InvalidMove)));
         }
     }
 
