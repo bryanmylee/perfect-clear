@@ -17,6 +17,7 @@ pub mod srs {
         to: &Orientation,
     ) -> Option<[Point<isize>; 4]> {
         match piece_kind {
+            PieceKind::O => None,
             PieceKind::I => match (from, to) {
                 (Orientation::North, Orientation::East) => Some([
                     Point { x: -2, y: 0 },
