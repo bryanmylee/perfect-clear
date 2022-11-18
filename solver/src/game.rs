@@ -45,27 +45,25 @@ impl State {
     }
 
     fn with_consumed_queue(&self, config: &Config) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
-
         let Some((Some(next_piece_kind), rest_piece_kinds)) = self.queue.split_first() else {
             return Err(ReduceError::ConsumeQueue(ConsumeQueueError::QueueEmpty));
         };
 
-        new_state.queue = [None; 7];
-
-        new_state.queue[..rest_piece_kinds.len()].clone_from_slice(rest_piece_kinds);
-
         let next_piece = Piece::spawn(next_piece_kind, config);
 
-        if !new_state.board.can_fit(&next_piece.get_points(config)) {
+        if !self.board.can_fit(&next_piece.get_points(config)) {
             return Err(ReduceError::GameOver);
         }
 
-        new_state.piece = Some(next_piece);
+        let mut new_queue = [None; 7];
+        new_queue[..rest_piece_kinds.len()].clone_from_slice(rest_piece_kinds);
 
-        new_state.is_hold_used = false;
-
-        Ok(new_state)
+        Ok(State {
+            queue: new_queue,
+            piece: Some(next_piece),
+            is_hold_used: false,
+            ..self.clone()
+        })
     }
 
     fn with_guessed_next(
@@ -74,40 +72,51 @@ impl State {
         piece_kind: &PieceKind,
         with_probability: f32,
     ) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
+        let next_piece = Piece::spawn(piece_kind, config);
 
-        new_state.piece = Some(Piece::spawn(piece_kind, config));
+        if !self.board.can_fit(&next_piece.get_points(config)) {
+            return Err(ReduceError::GameOver);
+        }
 
-        new_state.current_probability *= with_probability;
-
-        Ok(new_state)
+        Ok(State {
+            piece: Some(next_piece),
+            current_probability: self.current_probability * with_probability,
+            ..self.clone()
+        })
     }
 
     fn with_hold_used(&self, config: &Config, switch_hold: bool) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
-
         if self.is_hold_used {
             return Err(ReduceError::Hold(HoldError::NotAvailable));
         }
 
-        new_state.is_hold_used = true;
-
         if !switch_hold {
-            return Ok(new_state);
+            return Ok(State {
+                is_hold_used: true,
+                ..self.clone()
+            });
         }
 
-        let Some(hold_kind) = new_state.hold_kind else {
+        let Some(hold_kind) = self.hold_kind.as_ref() else {
             return Err(ReduceError::Hold(HoldError::NoHoldPiece));
         };
 
-        let Some(active) = new_state.piece else {
+        let next_piece = Piece::spawn(&hold_kind, config);
+
+        if !self.board.can_fit(&next_piece.get_points(config)) {
+            return Err(ReduceError::GameOver);
+        }
+
+        let Some(piece) = self.piece.as_ref() else {
             return Err(ReduceError::Hold(HoldError::NoPiece))
         };
 
-        new_state.hold_kind = Some(active.kind);
-        new_state.piece = Some(Piece::spawn(&hold_kind, config));
-
-        Ok(new_state)
+        Ok(State {
+            is_hold_used: true,
+            piece: Some(next_piece),
+            hold_kind: Some(piece.kind),
+            ..self.clone()
+        })
     }
 
     fn with_move(&self, config: &Config, mov: Move) -> Result<State, ReduceError> {
@@ -403,6 +412,27 @@ mod tests {
         use super::*;
 
         #[test]
+        fn invalid_if_new_piece_intersects_board() {
+            let mut board = Board::empty_board();
+            for x in 3..7 {
+                board.fill(&Point::new(x, 20));
+            }
+
+            let state = State {
+                board,
+                ..State::initial()
+            };
+
+            let next_state = state.reduce(&Action::GuessNext(PieceKind::I, 0.5), &CONFIG);
+
+            assert_eq!(
+                next_state,
+                Err(ReduceError::GameOver),
+                "Expected state to be invalid if next active piece intersects the board",
+            )
+        }
+
+        #[test]
         fn updates_probability_and_sets_piece() {
             let state = State::initial();
 
@@ -443,6 +473,29 @@ mod tests {
             let new_state = state.reduce(&Action::Hold(true), &CONFIG);
 
             assert_eq!(new_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
+        }
+
+        #[test]
+        fn invalid_if_new_piece_intersects_board() {
+            let mut board = Board::empty_board();
+            for x in 3..7 {
+                board.fill(&Point::new(x, 20));
+            }
+
+            let state = State {
+                board,
+                hold_kind: Some(PieceKind::I),
+                piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
+                ..State::initial()
+            };
+
+            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
+
+            assert_eq!(
+                next_state,
+                Err(ReduceError::GameOver),
+                "Expected state to be invalid if next active piece intersects the board",
+            )
         }
 
         #[test]
