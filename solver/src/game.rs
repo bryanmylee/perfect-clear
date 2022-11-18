@@ -1,6 +1,7 @@
 use crate::board::Board;
 use crate::config::{srs, Config};
 use crate::piece::{Piece, PieceKind};
+use crate::point::Point;
 use crate::rotation::Rotation;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -117,30 +118,38 @@ impl State {
     }
 
     fn with_rotation(&self, config: &Config, rotation: &Rotation) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
-
-        let Some(piece) = new_state.piece.as_mut() else {
+        let Some(piece) = self.piece.as_ref() else {
             return Err(ReduceError::Move(MoveError::NoPiece));
         };
 
         let from_orientation = piece.orientation;
-        piece.orientation = from_orientation.rotated(rotation);
+        let to_orientation = from_orientation.rotated(rotation);
 
-        let piece_points = piece.get_points(config);
+        let mut rotated_piece = Piece {
+            orientation: to_orientation,
+            ..piece.clone()
+        };
+        let piece_points = rotated_piece.get_points(config);
 
-        if new_state.board.can_fit(&piece_points) {
-            return Ok(new_state);
+        if self.board.can_fit(&piece_points) {
+            return Ok(State {
+                piece: Some(rotated_piece),
+                ..self.clone()
+            });
         }
 
-        let Some(kick_table) = srs::kick_table(&piece.kind, &from_orientation, &piece.orientation) else {
+        let Some(kicks) = srs::kick_table(&piece.kind, &from_orientation, &to_orientation) else {
             return Err(ReduceError::Move(MoveError::InvalidMove));
         };
 
-        for kick in kick_table {
+        for kick in kicks {
             let kicked_points = piece_points.map(|point| point + kick);
-            if new_state.board.can_fit(&kicked_points) {
-                piece.position += kick;
-                return Ok(new_state);
+            if self.board.can_fit(&kicked_points) {
+                rotated_piece.position += kick;
+                return Ok(State {
+                    piece: Some(rotated_piece),
+                    ..self.clone()
+                });
             }
         }
 
@@ -152,13 +161,25 @@ impl State {
         config: &Config,
         direction: &Direction,
     ) -> Result<State, ReduceError> {
-        let mut new_state = self.clone();
-
-        let Some(piece) = new_state.piece else {
+        let Some(piece) = self.piece.as_ref() else {
             return Err(ReduceError::Move(MoveError::NoPiece));
         };
 
-        Err(ReduceError::Move(MoveError::InvalidMove))
+        let direction_offset = direction.get_offset();
+
+        let moved_points = piece
+            .get_points(config)
+            .map(|point| point + direction_offset);
+
+        if !self.board.can_fit(&moved_points) {
+            return Err(ReduceError::Move(MoveError::InvalidMove));
+        }
+
+        let mut new_state = self.clone();
+
+        new_state.piece.as_mut().unwrap().position += direction_offset;
+
+        Ok(new_state)
     }
 
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
@@ -235,6 +256,16 @@ pub enum Direction {
     Left,
     Right,
     Down,
+}
+
+impl Direction {
+    pub fn get_offset(&self) -> Point<isize> {
+        match self {
+            Direction::Down => Point::new(0, -1),
+            Direction::Left => Point::new(-1, 0),
+            Direction::Right => Point::new(1, 0),
+        }
+    }
 }
 
 #[cfg(test)]
