@@ -230,6 +230,7 @@ pub enum ReduceError {
     Hold(HoldError),
     Move(MoveError),
     GameOver,
+    NoPerfectClear,
 }
 
 #[derive(Debug, PartialEq)]
