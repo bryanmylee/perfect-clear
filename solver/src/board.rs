@@ -134,7 +134,7 @@ impl Board {
         (0..10).all(|x| self.is_filled(&Point::new(x, y)))
     }
 
-    pub fn clear_lines(&mut self) {
+    pub fn clear_filled_lines(&mut self) {
         let mut next_board = Board::empty_board();
         let mut next_y = 0;
         for y in 0..20 {
@@ -148,6 +148,7 @@ impl Board {
             }
             next_y += 1;
         }
+        self.fill = next_board.fill;
     }
 }
 
@@ -643,6 +644,65 @@ mod tests {
             for y in 0..24 {
                 assert!(!board.is_line_filled(y));
             }
+        }
+    }
+
+    mod clear_filled_lines {
+        use super::*;
+
+        #[test]
+        fn no_difference_if_no_filled_lines() {
+            let mut board = Board::filled_board();
+            for y in 0..24 {
+                board.empty(&Point::new(y % 10, y));
+            }
+
+            let mut next_board = board.clone();
+            next_board.clear_filled_lines();
+
+            assert_eq!(next_board, board);
+        }
+
+        #[test]
+        fn moves_lines_down_when_clearing() {
+            let board = {
+                let mut b = Board::empty_board();
+
+                // filled lines to clear
+                for x in 0..10 {
+                    b.fill(&Point::new(x, 0));
+                    b.fill(&Point::new(x, 1));
+                    b.fill(&Point::new(x, 4));
+                    b.fill(&Point::new(x, 5));
+                }
+                // diagonal pattern that should be moved down
+                b.fill(&Point::new(2, 2));
+                b.fill(&Point::new(3, 3));
+                b.fill(&Point::new(6, 6));
+                b.fill(&Point::new(7, 7));
+                b.fill(&Point::new(8, 8));
+                b.fill(&Point::new(9, 9));
+
+                b
+            };
+
+            let mut next_board = board.clone();
+            next_board.clear_filled_lines();
+
+            let expected_board = {
+                let mut b = Board::empty_board();
+
+                b.fill(&Point::new(2, 0));
+                b.fill(&Point::new(3, 1));
+                b.fill(&Point::new(6, 2));
+                b.fill(&Point::new(7, 3));
+                b.fill(&Point::new(8, 4));
+                b.fill(&Point::new(9, 5));
+
+                b
+            };
+
+            assert_eq!(next_board, expected_board);
         }
     }
 }
