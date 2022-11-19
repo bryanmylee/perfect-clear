@@ -129,6 +129,26 @@ impl Board {
             self.fill(point);
         }
     }
+
+    pub fn is_line_filled(&self, y: isize) -> bool {
+        (0..10).all(|x| self.is_filled(&Point::new(x, y)))
+    }
+
+    pub fn clear_lines(&mut self) {
+        let mut next_board = Board::empty_board();
+        let mut next_y = 0;
+        for y in 0..20 {
+            if self.is_line_filled(y) {
+                continue;
+            }
+            for x in 0..10 {
+                if self.is_filled(&Point::new(x, y)) {
+                    next_board.fill(&Point::new(x, next_y));
+                }
+            }
+            next_y += 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -592,6 +612,37 @@ mod tests {
             };
 
             assert_eq!(board, expected_board,)
+        }
+    }
+
+    mod is_line_filled {
+        use super::*;
+
+        #[test]
+        fn line_filled() {
+            let board = Board::filled_board();
+            for y in 0..24 {
+                assert!(board.is_line_filled(y));
+            }
+        }
+
+        #[test]
+        fn line_not_filled() {
+            let board = Board::empty_board();
+            for y in 0..24 {
+                assert!(!board.is_line_filled(y));
+            }
+        }
+
+        #[test]
+        fn line_not_filled_if_any_empty_cell() {
+            let mut board = Board::filled_board();
+            for y in 0..24 {
+                board.empty(&Point::new(5, y));
+            }
+            for y in 0..24 {
+                assert!(!board.is_line_filled(y));
+            }
         }
     }
 }
