@@ -100,6 +100,16 @@ impl Board {
         *y_segment &= !(0b1 << (point.x + y_idx * 10));
     }
 
+    pub fn is_empty_board(&self) -> bool {
+        self.fill
+            == [
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+                0b0000000000_0000000000_0000000000_0000000000_0000000000_0000000000,
+            ]
+    }
+
     pub fn has_intersect(&self, other: &Board) -> bool {
         self.fill
             .iter()
@@ -382,6 +392,26 @@ mod tests {
                     Point::new(9, 20),
                 ],
             );
+        }
+    }
+
+    mod is_empty_board {
+        use super::*;
+
+        #[test]
+        fn true_if_all_empty() {
+            let board = Board::empty_board();
+
+            assert!(board.is_empty_board());
+        }
+
+        #[test]
+        fn false_if_any_filled() {
+            let mut board = Board::empty_board();
+
+            board.fill(&Point::new(3, 4));
+
+            assert!(!board.is_empty_board());
         }
     }
 
