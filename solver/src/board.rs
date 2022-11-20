@@ -147,7 +147,7 @@ impl Board {
     pub fn clear_filled_lines(&mut self) {
         let mut next_board = Board::empty_board();
         let mut next_y = 0;
-        for y in 0..20 {
+        for y in 0..24 {
             if self.is_line_filled(y) {
                 continue;
             }
