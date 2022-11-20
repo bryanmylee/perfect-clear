@@ -67,10 +67,10 @@ impl State {
     fn with_guessed_next(
         &self,
         config: &Config,
-        piece_kind: &PieceKind,
-        with_prob: f32,
+        kind: &PieceKind,
+        prob: f32,
     ) -> Result<State, ReduceError> {
-        let next_piece = Piece::spawn(piece_kind, config);
+        let next_piece = Piece::spawn(kind, config);
 
         if !self.board.can_fit(&next_piece.get_points(config)) {
             return Err(ReduceError::GameOver);
@@ -78,7 +78,7 @@ impl State {
 
         Ok(State {
             piece: Some(next_piece),
-            current_prob: self.current_prob * with_prob,
+            current_prob: self.current_prob * prob,
             ..self.clone()
         })
     }
