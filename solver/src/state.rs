@@ -13,7 +13,7 @@ pub struct State {
     queue: [Option<PieceKind>; 7], // fixed queue size to reduce heap allocations
     seen: [Option<PieceKind>; 14], // only 2-bags needed at most to determine next piece probability
     moves_remaining: isize,
-    current_probability: f32,
+    current_prob: f32,
 }
 
 impl State {
@@ -26,7 +26,7 @@ impl State {
             queue: [None; 7],
             seen: [None; 14],
             moves_remaining: 10,
-            current_probability: 1.0,
+            current_prob: 1.0,
         }
     }
 }
@@ -35,10 +35,8 @@ impl State {
     pub fn reduce(&self, action: &Action, config: &Config) -> Result<State, ReduceError> {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
-            Action::GuessNext(piece_kind, with_probability) => {
-                self.with_guessed_next(config, piece_kind, *with_probability)
-            }
-            Action::Hold(switch_hold) => self.with_hold_used(config, *switch_hold),
+            Action::GuessNext { kind, prob } => self.with_guessed_next(config, kind, *prob),
+            Action::Hold { switch } => self.with_hold_used(config, *switch),
             Action::Move(mov) => self.with_move(config, *mov),
             Action::Place => self.with_placed_piece(config),
         }
@@ -70,7 +68,7 @@ impl State {
         &self,
         config: &Config,
         piece_kind: &PieceKind,
-        with_probability: f32,
+        with_prob: f32,
     ) -> Result<State, ReduceError> {
         let next_piece = Piece::spawn(piece_kind, config);
 
@@ -80,17 +78,17 @@ impl State {
 
         Ok(State {
             piece: Some(next_piece),
-            current_probability: self.current_probability * with_probability,
+            current_prob: self.current_prob * with_prob,
             ..self.clone()
         })
     }
 
-    fn with_hold_used(&self, config: &Config, switch_hold: bool) -> Result<State, ReduceError> {
+    fn with_hold_used(&self, config: &Config, switch: bool) -> Result<State, ReduceError> {
         if self.is_hold_used {
             return Err(ReduceError::Hold(HoldError::NotAvailable));
         }
 
-        if !switch_hold {
+        if !switch {
             return Ok(State {
                 is_hold_used: true,
                 ..self.clone()
@@ -217,8 +215,8 @@ impl State {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     ConsumeQueue,
-    GuessNext(PieceKind, f32),
-    Hold(bool),
+    GuessNext { kind: PieceKind, prob: f32 },
+    Hold { switch: bool },
     Move(Move),
     Place,
 }
@@ -426,7 +424,13 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::GuessNext(PieceKind::I, 0.5), &CONFIG);
+            let next_state = state.reduce(
+                &Action::GuessNext {
+                    kind: PieceKind::I,
+                    prob: 0.5,
+                },
+                &CONFIG,
+            );
 
             assert_eq!(
                 next_state,
@@ -436,10 +440,16 @@ mod tests {
         }
 
         #[test]
-        fn updates_probability_and_sets_piece() {
+        fn updates_prob_and_sets_piece() {
             let state = State::initial();
 
-            let next_state = state.reduce(&Action::GuessNext(PieceKind::J, 0.5), &CONFIG);
+            let next_state = state.reduce(
+                &Action::GuessNext {
+                    kind: PieceKind::J,
+                    prob: 0.5,
+                },
+                &CONFIG,
+            );
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -447,7 +457,7 @@ mod tests {
             assert!(next_state.piece.is_some());
             assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
 
-            assert_eq!(next_state.current_probability, 0.5);
+            assert_eq!(next_state.current_prob, 0.5);
         }
     }
 
@@ -461,7 +471,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
 
             assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoPiece)));
         }
@@ -473,7 +483,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
 
             assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
         }
@@ -492,7 +502,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
 
             assert_eq!(
                 next_state,
@@ -509,7 +519,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold(true), &CONFIG);
+            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -527,7 +537,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold(false), &CONFIG);
+            let next_state = state.reduce(&Action::Hold { switch: false }, &CONFIG);
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
