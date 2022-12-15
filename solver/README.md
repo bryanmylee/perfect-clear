@@ -22,6 +22,10 @@ Active piece states describe states where a piece is being moved into position f
 
 - move / rotate / hold active piece
 
+An active state produces another active state when reduced with a move action. Multiple sequences of actions may produce the same state. Therefore, only the most optimal sequence of actions should be saved to reach a specific position and orientation. To accomplish this, each potential piece position and orientation in the dynamic table will save an optional value containing the previous position and orientation, and the reducing action to reach the position and orientation.
+
+- We cannot store the accumulated number of actions up to this point because it would break dynamic updating of the table.
+
 An active state is reduced to its next state when the "place" action is taken, upon which any filled lines will be cleared and the solver will check for final states. If no valid final states exist for the branch, the active state will be reduced to an inactive state again.
 
 ### Final states
