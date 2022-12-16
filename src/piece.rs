@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -17,6 +18,23 @@ pub enum PieceKind {
     S = 4,
     T = 5,
     Z = 6,
+}
+
+impl TryFrom<u8> for PieceKind {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(PieceKind::I),
+            1 => Ok(PieceKind::J),
+            2 => Ok(PieceKind::L),
+            3 => Ok(PieceKind::O),
+            4 => Ok(PieceKind::S),
+            5 => Ok(PieceKind::T),
+            6 => Ok(PieceKind::Z),
+            _ => Err(()),
+        }
+    }
 }
 
 impl PieceKind {
@@ -102,7 +120,7 @@ impl PieceKind {
 }
 
 #[wasm_bindgen]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Piece {
     pub kind: PieceKind,
     /**
