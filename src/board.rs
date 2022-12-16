@@ -1,11 +1,9 @@
+use crate::point::ISizePoint;
 use std::fmt;
-
 use wasm_bindgen::prelude::*;
 
-use crate::point::ISizePoint;
-
 #[wasm_bindgen]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Board {
     /**
     A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to get
