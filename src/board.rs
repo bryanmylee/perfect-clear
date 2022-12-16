@@ -2,7 +2,7 @@ use std::fmt;
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{piece::PiecePoints, point::ISizePoint};
+use crate::point::ISizePoint;
 
 #[wasm_bindgen]
 #[derive(Clone, PartialEq, Eq)]
@@ -124,18 +124,18 @@ impl Board {
         }
     }
 
-    pub fn can_fit(&self, piece_points: &PiecePoints) -> bool {
+    pub fn can_fit(&self, piece_points: &[ISizePoint; 4]) -> bool {
         piece_points.iter().all(|point| !self.is_filled(point))
     }
 
-    pub fn can_place(&self, piece_points: &PiecePoints) -> bool {
+    pub fn can_place(&self, piece_points: &[ISizePoint; 4]) -> bool {
         let offset = ISizePoint::new(0, -1);
         piece_points
             .iter()
             .any(|point| self.is_filled(&(*point + offset)))
     }
 
-    pub fn fill_piece_points(&mut self, piece_points: &PiecePoints) {
+    pub fn fill_piece_points(&mut self, piece_points: &[ISizePoint; 4]) {
         for point in piece_points {
             self.fill(point);
         }

@@ -130,13 +130,8 @@ struct PieceOffsetBox {
     bounding_box_size: usize,
 }
 
-/**
-The four points on the board represented by a piece.
-*/
-pub type PiecePoints = [ISizePoint; 4];
-
 impl Piece {
-    pub fn get_points(&self, config: &Config) -> PiecePoints {
+    pub fn get_points(&self, config: &Config) -> [ISizePoint; 4] {
         let mut unoriented_offset_box = self.kind.get_unoriented_offset_box(config);
         orient_offset_box(&mut unoriented_offset_box, &self.orientation);
         unoriented_offset_box
