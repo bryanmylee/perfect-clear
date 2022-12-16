@@ -8,12 +8,18 @@ use crate::rotation::Rotation;
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
-pub struct State {
+pub struct Game {
     board: Board,
     piece: Option<Piece>,
     hold_kind: Option<PieceKind>,
     is_hold_used: bool,
     queue: [Option<PieceKind>; 7], // fixed queue size to reduce heap allocations
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Clone, PartialEq)]
+pub struct State {
+    game: Game,
     seen: [Option<PieceKind>; 14], // only 2-bags needed at most to determine next piece probability
     moves_remaining: isize,
     current_prob: f32,
@@ -22,11 +28,13 @@ pub struct State {
 impl State {
     pub fn initial() -> State {
         State {
-            board: Board::empty_board(),
-            piece: None,
-            hold_kind: None,
-            is_hold_used: false,
-            queue: [None; 7],
+            game: Game {
+                board: Board::empty_board(),
+                piece: None,
+                hold_kind: None,
+                is_hold_used: false,
+                queue: [None; 7],
+            },
             seen: [None; 14],
             moves_remaining: 10,
             current_prob: 1.0,
@@ -46,24 +54,28 @@ impl State {
     }
 
     fn with_consumed_queue(&self, config: &Config) -> Result<State, ReduceError> {
-        let Some((Some(next_piece_kind), rest_piece_kinds)) = self.queue.split_first() else {
+        let Some((Some(next_piece_kind), rest_piece_kinds)) = self.game.queue.split_first() else {
             return Err(ReduceError::ConsumeQueue(ConsumeQueueError::QueueEmpty));
         };
 
         let next_piece = Piece::spawn(next_piece_kind, config);
 
-        if !self.board.can_fit(&next_piece.get_points(config)) {
+        if !self.game.board.can_fit(&next_piece.get_points(config)) {
             return Err(ReduceError::GameOver);
         }
 
         let mut new_queue = [None; 7];
         new_queue[..rest_piece_kinds.len()].clone_from_slice(rest_piece_kinds);
 
+        let mut next_state = self.clone();
         Ok(State {
-            queue: new_queue,
-            piece: Some(next_piece),
-            is_hold_used: false,
-            ..self.clone()
+            game: Game {
+                queue: new_queue,
+                piece: Some(next_piece),
+                is_hold_used: false,
+                ..next_state.game
+            },
+            ..next_state
         })
     }
 
@@ -75,48 +87,60 @@ impl State {
     ) -> Result<State, ReduceError> {
         let next_piece = Piece::spawn(kind, config);
 
-        if !self.board.can_fit(&next_piece.get_points(config)) {
+        if !self.game.board.can_fit(&next_piece.get_points(config)) {
             return Err(ReduceError::GameOver);
         }
 
+        let next_state = self.clone();
         Ok(State {
-            piece: Some(next_piece),
+            game: Game {
+                piece: Some(next_piece),
+                ..next_state.game
+            },
             current_prob: self.current_prob * prob,
-            ..self.clone()
+            ..next_state
         })
     }
 
     fn with_hold_used(&self, config: &Config, switch: bool) -> Result<State, ReduceError> {
-        if self.is_hold_used {
+        if self.game.is_hold_used {
             return Err(ReduceError::Hold(HoldError::NotAvailable));
         }
 
         if !switch {
+            let next_state = self.clone();
             return Ok(State {
-                is_hold_used: true,
-                ..self.clone()
+                game: Game {
+                    is_hold_used: true,
+                    ..next_state.game
+                },
+                ..next_state
             });
         }
 
-        let Some(hold_kind) = self.hold_kind.as_ref() else {
+        let Some(hold_kind) = self.game.hold_kind.as_ref() else {
             return Err(ReduceError::Hold(HoldError::NoHoldPiece));
         };
 
         let next_piece = Piece::spawn(&hold_kind, config);
 
-        if !self.board.can_fit(&next_piece.get_points(config)) {
+        if !self.game.board.can_fit(&next_piece.get_points(config)) {
             return Err(ReduceError::GameOver);
         }
 
-        let Some(piece) = self.piece.as_ref() else {
+        let Some(piece) = self.game.piece.as_ref() else {
             return Err(ReduceError::Hold(HoldError::NoPiece))
         };
 
+        let next_state = self.clone();
         Ok(State {
-            is_hold_used: true,
-            piece: Some(next_piece),
-            hold_kind: Some(piece.kind),
-            ..self.clone()
+            game: Game {
+                is_hold_used: true,
+                piece: Some(next_piece),
+                hold_kind: Some(piece.kind),
+                ..next_state.game
+            },
+            ..next_state
         })
     }
 
@@ -128,7 +152,7 @@ impl State {
     }
 
     fn with_rotation(&self, config: &Config, rotation: &Rotation) -> Result<State, ReduceError> {
-        let Some(piece) = self.piece.as_ref() else {
+        let Some(piece) = self.game.piece.as_ref() else {
             return Err(ReduceError::Move(MoveError::NoPiece));
         };
 
@@ -141,10 +165,14 @@ impl State {
         };
         let piece_points = rotated_piece.get_points(config);
 
-        if self.board.can_fit(&piece_points) {
+        if self.game.board.can_fit(&piece_points) {
+            let next_state = self.clone();
             return Ok(State {
-                piece: Some(rotated_piece),
-                ..self.clone()
+                game: Game {
+                    piece: Some(rotated_piece),
+                    ..next_state.game
+                },
+                ..next_state
             });
         }
 
@@ -154,11 +182,15 @@ impl State {
 
         for kick in kicks {
             let kicked_points = piece_points.map(|point| point + kick);
-            if self.board.can_fit(&kicked_points) {
+            if self.game.board.can_fit(&kicked_points) {
                 rotated_piece.position += kick;
+                let next_state = self.clone();
                 return Ok(State {
-                    piece: Some(rotated_piece),
-                    ..self.clone()
+                    game: Game {
+                        piece: Some(rotated_piece),
+                        ..next_state.game
+                    },
+                    ..next_state
                 });
             }
         }
@@ -171,7 +203,7 @@ impl State {
         config: &Config,
         direction: &Direction,
     ) -> Result<State, ReduceError> {
-        let Some(piece) = self.piece.as_ref() else {
+        let Some(piece) = self.game.piece.as_ref() else {
             return Err(ReduceError::Move(MoveError::NoPiece));
         };
 
@@ -184,34 +216,42 @@ impl State {
 
         let next_piece_points = next_piece.get_points(config);
 
-        if !self.board.can_fit(&next_piece_points) {
+        if !self.game.board.can_fit(&next_piece_points) {
             return Err(ReduceError::Move(MoveError::InvalidMove));
         }
 
+        let next_state = self.clone();
         Ok(State {
-            piece: Some(next_piece),
-            ..self.clone()
+            game: Game {
+                piece: Some(next_piece),
+                ..next_state.game
+            },
+            ..next_state
         })
     }
 
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
-        let mut next_state = self.clone();
-
-        let Some(piece) = &self.piece else {
+        let Some(piece) = &self.game.piece else {
             return Err(ReduceError::Place(PlaceError::NoPiece));
         };
 
         let piece_points = piece.get_points(config);
 
-        if !self.board.can_place(&piece_points) {
+        if !self.game.board.can_place(&piece_points) {
             return Err(ReduceError::Place(PlaceError::PieceInAir));
         }
 
-        next_state.board.fill_piece_points(&piece_points);
-
-        next_state.piece = None;
-
-        Ok(next_state)
+        let next_state = self.clone();
+        let mut next_board = next_state.game.board;
+        next_board.fill_piece_points(&piece_points);
+        Ok(State {
+            game: Game {
+                board: next_board,
+                piece: None,
+                ..next_state.game
+            },
+            ..next_state
+        })
     }
 }
 
@@ -318,8 +358,11 @@ mod tests {
             queue[0] = Some(PieceKind::I);
 
             let state = State {
-                board,
-                queue,
+                game: Game {
+                    board,
+                    queue,
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -338,7 +381,10 @@ mod tests {
             queue[0] = Some(PieceKind::I);
 
             let state = State {
-                queue,
+                game: Game {
+                    queue,
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -348,7 +394,7 @@ mod tests {
 
             let next_state = next_state.unwrap();
 
-            assert!(!next_state.is_hold_used);
+            assert!(!next_state.game.is_hold_used);
         }
 
         #[test]
@@ -364,7 +410,10 @@ mod tests {
             ];
 
             let state = State {
-                queue,
+                game: Game {
+                    queue,
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -373,10 +422,10 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            assert!(next_state.piece.is_some());
-            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::I);
+            assert!(next_state.game.piece.is_some());
+            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::I);
             assert_eq!(
-                next_state.queue,
+                next_state.game.queue,
                 [
                     Some(PieceKind::J),
                     Some(PieceKind::L),
@@ -393,10 +442,10 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            assert!(next_state.piece.is_some());
-            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
+            assert!(next_state.game.piece.is_some());
+            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
             assert_eq!(
-                next_state.queue,
+                next_state.game.queue,
                 [
                     Some(PieceKind::L),
                     Some(PieceKind::O),
@@ -421,7 +470,10 @@ mod tests {
             }
 
             let state = State {
-                board,
+                game: Game {
+                    board,
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -455,8 +507,8 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            assert!(next_state.piece.is_some());
-            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
+            assert!(next_state.game.piece.is_some());
+            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
 
             assert_eq!(next_state.current_prob, 0.5);
         }
@@ -468,7 +520,10 @@ mod tests {
         #[test]
         fn invalid_if_no_active_piece() {
             let state = State {
-                hold_kind: Some(PieceKind::J),
+                game: Game {
+                    hold_kind: Some(PieceKind::J),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -480,7 +535,10 @@ mod tests {
         #[test]
         fn invalid_if_no_hold_piece() {
             let state = State {
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                game: Game {
+                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -497,9 +555,12 @@ mod tests {
             }
 
             let state = State {
-                board,
-                hold_kind: Some(PieceKind::I),
-                piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
+                game: Game {
+                    board,
+                    hold_kind: Some(PieceKind::I),
+                    piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -515,8 +576,11 @@ mod tests {
         #[test]
         fn consumes_hold_and_swaps_hold() {
             let state = State {
-                hold_kind: Some(PieceKind::J),
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                game: Game {
+                    hold_kind: Some(PieceKind::J),
+                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -525,16 +589,19 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            assert!(next_state.is_hold_used);
-            assert_eq!(next_state.hold_kind.unwrap(), PieceKind::I);
-            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::J);
+            assert!(next_state.game.is_hold_used);
+            assert_eq!(next_state.game.hold_kind.unwrap(), PieceKind::I);
+            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
         }
 
         #[test]
         fn consumes_hold_without_swapping_hold() {
             let state = State {
-                hold_kind: Some(PieceKind::J),
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                game: Game {
+                    hold_kind: Some(PieceKind::J),
+                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -543,9 +610,9 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            assert!(next_state.is_hold_used);
-            assert_eq!(next_state.hold_kind.unwrap(), PieceKind::J);
-            assert_eq!(next_state.piece.as_ref().unwrap().kind, PieceKind::I);
+            assert!(next_state.game.is_hold_used);
+            assert_eq!(next_state.game.hold_kind.unwrap(), PieceKind::J);
+            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::I);
         }
     }
 
@@ -560,11 +627,14 @@ mod tests {
             #[test]
             fn no_kick() {
                 let state = State {
-                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    game: Game {
+                        piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                        ..State::initial().game
+                    },
                     ..State::initial()
                 };
 
-                let original_position = state.piece.as_ref().unwrap().position;
+                let original_position = state.game.piece.as_ref().unwrap().position;
 
                 let next_state =
                     state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
@@ -572,13 +642,13 @@ mod tests {
                 assert!(next_state.is_ok());
                 let next_state = next_state.unwrap();
 
-                assert!(next_state.piece.is_some());
+                assert!(next_state.game.piece.is_some());
                 assert_eq!(
-                    next_state.piece.as_ref().unwrap().orientation,
+                    next_state.game.piece.as_ref().unwrap().orientation,
                     Orientation::East
                 );
                 assert_eq!(
-                    next_state.piece.as_ref().unwrap().position,
+                    next_state.game.piece.as_ref().unwrap().position,
                     original_position,
                 );
             }
@@ -601,11 +671,14 @@ mod tests {
                     board.empty(&ISizePoint::new(3, 3));
 
                     let state = State {
-                        board,
-                        piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
-                        }),
+                        game: Game {
+                            board,
+                            piece: Some(Piece {
+                                position: ISizePoint::new(3, 0),
+                                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            }),
+                            ..State::initial().game
+                        },
                         ..State::initial()
                     };
 
@@ -615,13 +688,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(1, 0),
                     );
 
@@ -633,13 +706,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(3, 0)
                     );
                 }
@@ -659,11 +732,14 @@ mod tests {
                     board.empty(&ISizePoint::new(6, 3));
 
                     let state = State {
-                        board,
-                        piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
-                        }),
+                        game: Game {
+                            board,
+                            piece: Some(Piece {
+                                position: ISizePoint::new(3, 0),
+                                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            }),
+                            ..State::initial().game
+                        },
                         ..State::initial()
                     };
 
@@ -673,13 +749,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(4, 0),
                     );
 
@@ -691,13 +767,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(3, 0)
                     );
                 }
@@ -717,11 +793,14 @@ mod tests {
                     board.empty(&ISizePoint::new(3, 3));
 
                     let state = State {
-                        board,
-                        piece: Some(Piece {
-                            position: ISizePoint::new(3, 1),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
-                        }),
+                        game: Game {
+                            board,
+                            piece: Some(Piece {
+                                position: ISizePoint::new(3, 1),
+                                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            }),
+                            ..State::initial().game
+                        },
                         ..State::initial()
                     };
 
@@ -731,13 +810,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(1, 0),
                     );
 
@@ -749,13 +828,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(3, 1)
                     );
                 }
@@ -775,11 +854,14 @@ mod tests {
                     board.empty(&ISizePoint::new(6, 5));
 
                     let state = State {
-                        board,
-                        piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
-                        }),
+                        game: Game {
+                            board,
+                            piece: Some(Piece {
+                                position: ISizePoint::new(3, 0),
+                                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            }),
+                            ..State::initial().game
+                        },
                         ..State::initial()
                     };
 
@@ -789,13 +871,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(4, 2),
                     );
 
@@ -807,13 +889,13 @@ mod tests {
                     assert!(next_state.is_ok());
                     let next_state = next_state.unwrap();
 
-                    assert!(next_state.piece.is_some());
+                    assert!(next_state.game.piece.is_some());
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().orientation,
+                        next_state.game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
                     assert_eq!(
-                        next_state.piece.as_ref().unwrap().position,
+                        next_state.game.piece.as_ref().unwrap().position,
                         ISizePoint::new(3, 0)
                     );
                 }
@@ -827,10 +909,13 @@ mod tests {
         #[test]
         fn moves_piece() {
             let state = State {
-                piece: Some(Piece {
-                    position: ISizePoint::new(3, -1),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
-                }),
+                game: Game {
+                    piece: Some(Piece {
+                        position: ISizePoint::new(3, -1),
+                        ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    }),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -839,7 +924,7 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            let piece = next_state.piece.as_ref().unwrap();
+            let piece = next_state.game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(3, -2));
 
             let next_state =
@@ -848,7 +933,7 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            let piece = next_state.piece.as_ref().unwrap();
+            let piece = next_state.game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(2, -2));
 
             let next_state =
@@ -857,7 +942,7 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
-            let piece = next_state.piece.as_ref().unwrap();
+            let piece = next_state.game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(3, -2));
 
             let next_state =
@@ -885,10 +970,13 @@ mod tests {
         #[test]
         fn invalid_if_piece_in_air() {
             let state = State {
-                piece: Some(Piece {
-                    position: ISizePoint::new(3, -1),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
-                }),
+                game: Game {
+                    piece: Some(Piece {
+                        position: ISizePoint::new(3, -1),
+                        ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    }),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -904,10 +992,13 @@ mod tests {
         #[test]
         fn piece_placed() {
             let state = State {
-                piece: Some(Piece {
-                    position: ISizePoint::new(3, -2),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
-                }),
+                game: Game {
+                    piece: Some(Piece {
+                        position: ISizePoint::new(3, -2),
+                        ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    }),
+                    ..State::initial().game
+                },
                 ..State::initial()
             };
 
@@ -916,7 +1007,7 @@ mod tests {
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
             assert!(
-                next_state.piece.is_none(),
+                next_state.game.piece.is_none(),
                 "Active piece should be none after placement"
             );
 
@@ -926,7 +1017,7 @@ mod tests {
             expected_board.fill(&ISizePoint::new(5, 0));
             expected_board.fill(&ISizePoint::new(6, 0));
             assert_eq!(
-                next_state.board, expected_board,
+                next_state.game.board, expected_board,
                 "Previous active piece should fill the board after placement"
             );
         }
