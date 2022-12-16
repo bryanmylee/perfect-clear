@@ -1,4 +1,4 @@
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 use crate::board::Board;
 use crate::config::{srs, Config};

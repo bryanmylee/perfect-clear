@@ -1,5 +1,5 @@
 use std::ops::{Add, AddAssign, Sub};
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point<T> {

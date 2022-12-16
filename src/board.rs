@@ -1,6 +1,6 @@
 use std::fmt;
 
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 use crate::point::ISizePoint;
 
