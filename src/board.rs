@@ -5,12 +5,12 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Board {
-    /**
-    A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to get
-    60 cells in each segment. This lets us store the fill state of each segment as a bitfield.
-
-    The segments are ordered from bottom to top and the cells in each segment are ordered from bottom-left to top-right.
-    */
+    /// A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to
+    /// get 60 cells in each segment. This lets us store the fill state of each segment as a
+    /// bitfield.
+    ///
+    /// The segments are ordered from bottom to top and the cells in each segment are ordered from
+    /// bottom-left to top-right.
     fill: [u64; 4],
 }
 
@@ -27,6 +27,15 @@ impl fmt::Debug for Board {
             }
         }
         Ok(())
+    }
+}
+
+#[wasm_bindgen]
+impl Board {
+    pub fn js_new(bottom: u64, bottom_middle: u64, top_middle: u64, top: u64) -> Board {
+        Board {
+            fill: [bottom, bottom_middle, top_middle, top],
+        }
     }
 }
 
