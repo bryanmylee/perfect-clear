@@ -1,9 +1,12 @@
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::board::Board;
 use crate::config::{srs, Config};
 use crate::piece::{Piece, PieceKind};
-use crate::point::Point;
+use crate::point::ISizePoint;
 use crate::rotation::Rotation;
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     board: Board,
@@ -269,11 +272,11 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn get_offset(&self) -> Point<isize> {
+    pub fn get_offset(&self) -> ISizePoint {
         match self {
-            Direction::Down => Point::new(0, -1),
-            Direction::Left => Point::new(-1, 0),
-            Direction::Right => Point::new(1, 0),
+            Direction::Down => ISizePoint::new(0, -1),
+            Direction::Left => ISizePoint::new(-1, 0),
+            Direction::Right => ISizePoint::new(1, 0),
         }
     }
 }
@@ -289,8 +292,6 @@ mod tests {
     };
 
     mod with_consumed_queue {
-        use crate::point::Point;
-
         use super::*;
 
         #[test]
@@ -310,7 +311,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&Point::new(x, 20));
+                board.fill(&ISizePoint::new(x, 20));
             }
 
             let mut queue: [Option<PieceKind>; 7] = [None; 7];
@@ -416,7 +417,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&Point::new(x, 20));
+                board.fill(&ISizePoint::new(x, 20));
             }
 
             let state = State {
@@ -492,7 +493,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&Point::new(x, 20));
+                board.fill(&ISizePoint::new(x, 20));
             }
 
             let state = State {
@@ -583,28 +584,26 @@ mod tests {
             }
 
             mod north_and_east {
-                use crate::point::Point;
-
                 use super::*;
 
                 #[test]
                 fn kick_one() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&Point::new(3, 2));
-                    board.empty(&Point::new(4, 2));
-                    board.empty(&Point::new(5, 2));
-                    board.empty(&Point::new(6, 2));
+                    board.empty(&ISizePoint::new(3, 2));
+                    board.empty(&ISizePoint::new(4, 2));
+                    board.empty(&ISizePoint::new(5, 2));
+                    board.empty(&ISizePoint::new(6, 2));
 
-                    board.empty(&Point::new(3, 0));
-                    board.empty(&Point::new(3, 1));
-                    board.empty(&Point::new(3, 2));
-                    board.empty(&Point::new(3, 3));
+                    board.empty(&ISizePoint::new(3, 0));
+                    board.empty(&ISizePoint::new(3, 1));
+                    board.empty(&ISizePoint::new(3, 2));
+                    board.empty(&ISizePoint::new(3, 3));
 
                     let state = State {
                         board,
                         piece: Some(Piece {
-                            position: Point::new(3, 0),
+                            position: ISizePoint::new(3, 0),
                             ..Piece::spawn(&PieceKind::I, &CONFIG)
                         }),
                         ..State::initial()
@@ -623,7 +622,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(1, 0),
+                        ISizePoint::new(1, 0),
                     );
 
                     let next_state = next_state.reduce(
@@ -641,7 +640,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(3, 0)
+                        ISizePoint::new(3, 0)
                     );
                 }
 
@@ -649,20 +648,20 @@ mod tests {
                 fn kick_two() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&Point::new(3, 2));
-                    board.empty(&Point::new(4, 2));
-                    board.empty(&Point::new(5, 2));
-                    board.empty(&Point::new(6, 2));
+                    board.empty(&ISizePoint::new(3, 2));
+                    board.empty(&ISizePoint::new(4, 2));
+                    board.empty(&ISizePoint::new(5, 2));
+                    board.empty(&ISizePoint::new(6, 2));
 
-                    board.empty(&Point::new(6, 0));
-                    board.empty(&Point::new(6, 1));
-                    board.empty(&Point::new(6, 2));
-                    board.empty(&Point::new(6, 3));
+                    board.empty(&ISizePoint::new(6, 0));
+                    board.empty(&ISizePoint::new(6, 1));
+                    board.empty(&ISizePoint::new(6, 2));
+                    board.empty(&ISizePoint::new(6, 3));
 
                     let state = State {
                         board,
                         piece: Some(Piece {
-                            position: Point::new(3, 0),
+                            position: ISizePoint::new(3, 0),
                             ..Piece::spawn(&PieceKind::I, &CONFIG)
                         }),
                         ..State::initial()
@@ -681,7 +680,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(4, 0),
+                        ISizePoint::new(4, 0),
                     );
 
                     let next_state = next_state.reduce(
@@ -699,7 +698,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(3, 0)
+                        ISizePoint::new(3, 0)
                     );
                 }
 
@@ -707,20 +706,20 @@ mod tests {
                 fn kick_three() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&Point::new(3, 3));
-                    board.empty(&Point::new(4, 3));
-                    board.empty(&Point::new(5, 3));
-                    board.empty(&Point::new(6, 3));
+                    board.empty(&ISizePoint::new(3, 3));
+                    board.empty(&ISizePoint::new(4, 3));
+                    board.empty(&ISizePoint::new(5, 3));
+                    board.empty(&ISizePoint::new(6, 3));
 
-                    board.empty(&Point::new(3, 0));
-                    board.empty(&Point::new(3, 1));
-                    board.empty(&Point::new(3, 2));
-                    board.empty(&Point::new(3, 3));
+                    board.empty(&ISizePoint::new(3, 0));
+                    board.empty(&ISizePoint::new(3, 1));
+                    board.empty(&ISizePoint::new(3, 2));
+                    board.empty(&ISizePoint::new(3, 3));
 
                     let state = State {
                         board,
                         piece: Some(Piece {
-                            position: Point::new(3, 1),
+                            position: ISizePoint::new(3, 1),
                             ..Piece::spawn(&PieceKind::I, &CONFIG)
                         }),
                         ..State::initial()
@@ -739,7 +738,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(1, 0),
+                        ISizePoint::new(1, 0),
                     );
 
                     let next_state = next_state.reduce(
@@ -757,7 +756,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(3, 1)
+                        ISizePoint::new(3, 1)
                     );
                 }
 
@@ -765,20 +764,20 @@ mod tests {
                 fn kick_four() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&Point::new(3, 2));
-                    board.empty(&Point::new(4, 2));
-                    board.empty(&Point::new(5, 2));
-                    board.empty(&Point::new(6, 2));
+                    board.empty(&ISizePoint::new(3, 2));
+                    board.empty(&ISizePoint::new(4, 2));
+                    board.empty(&ISizePoint::new(5, 2));
+                    board.empty(&ISizePoint::new(6, 2));
 
-                    board.empty(&Point::new(6, 2));
-                    board.empty(&Point::new(6, 3));
-                    board.empty(&Point::new(6, 4));
-                    board.empty(&Point::new(6, 5));
+                    board.empty(&ISizePoint::new(6, 2));
+                    board.empty(&ISizePoint::new(6, 3));
+                    board.empty(&ISizePoint::new(6, 4));
+                    board.empty(&ISizePoint::new(6, 5));
 
                     let state = State {
                         board,
                         piece: Some(Piece {
-                            position: Point::new(3, 0),
+                            position: ISizePoint::new(3, 0),
                             ..Piece::spawn(&PieceKind::I, &CONFIG)
                         }),
                         ..State::initial()
@@ -797,7 +796,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(4, 2),
+                        ISizePoint::new(4, 2),
                     );
 
                     let next_state = next_state.reduce(
@@ -815,7 +814,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        Point::new(3, 0)
+                        ISizePoint::new(3, 0)
                     );
                 }
             }
@@ -829,7 +828,7 @@ mod tests {
         fn moves_piece() {
             let state = State {
                 piece: Some(Piece {
-                    position: Point::new(3, -1),
+                    position: ISizePoint::new(3, -1),
                     ..Piece::spawn(&PieceKind::I, &CONFIG)
                 }),
                 ..State::initial()
@@ -841,7 +840,7 @@ mod tests {
             let next_state = next_state.unwrap();
 
             let piece = next_state.piece.as_ref().unwrap();
-            assert_eq!(piece.position, Point::new(3, -2));
+            assert_eq!(piece.position, ISizePoint::new(3, -2));
 
             let next_state =
                 next_state.reduce(&Action::Move(Move::Translate(Direction::Left)), &CONFIG);
@@ -850,7 +849,7 @@ mod tests {
             let next_state = next_state.unwrap();
 
             let piece = next_state.piece.as_ref().unwrap();
-            assert_eq!(piece.position, Point::new(2, -2));
+            assert_eq!(piece.position, ISizePoint::new(2, -2));
 
             let next_state =
                 next_state.reduce(&Action::Move(Move::Translate(Direction::Right)), &CONFIG);
@@ -859,7 +858,7 @@ mod tests {
             let next_state = next_state.unwrap();
 
             let piece = next_state.piece.as_ref().unwrap();
-            assert_eq!(piece.position, Point::new(3, -2));
+            assert_eq!(piece.position, ISizePoint::new(3, -2));
 
             let next_state =
                 next_state.reduce(&Action::Move(Move::Translate(Direction::Down)), &CONFIG);
@@ -868,8 +867,6 @@ mod tests {
     }
 
     mod with_placed_piece {
-        use crate::point::Point;
-
         use super::*;
 
         #[test]
@@ -889,7 +886,7 @@ mod tests {
         fn invalid_if_piece_in_air() {
             let state = State {
                 piece: Some(Piece {
-                    position: Point::new(3, -1),
+                    position: ISizePoint::new(3, -1),
                     ..Piece::spawn(&PieceKind::I, &CONFIG)
                 }),
                 ..State::initial()
@@ -908,7 +905,7 @@ mod tests {
         fn piece_placed() {
             let state = State {
                 piece: Some(Piece {
-                    position: Point::new(3, -2),
+                    position: ISizePoint::new(3, -2),
                     ..Piece::spawn(&PieceKind::I, &CONFIG)
                 }),
                 ..State::initial()
@@ -924,10 +921,10 @@ mod tests {
             );
 
             let mut expected_board = Board::empty_board();
-            expected_board.fill(&Point::new(3, 0));
-            expected_board.fill(&Point::new(4, 0));
-            expected_board.fill(&Point::new(5, 0));
-            expected_board.fill(&Point::new(6, 0));
+            expected_board.fill(&ISizePoint::new(3, 0));
+            expected_board.fill(&ISizePoint::new(4, 0));
+            expected_board.fill(&ISizePoint::new(5, 0));
+            expected_board.fill(&ISizePoint::new(6, 0));
             assert_eq!(
                 next_state.board, expected_board,
                 "Previous active piece should fill the board after placement"

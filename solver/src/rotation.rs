@@ -1,9 +1,13 @@
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[wasm_bindgen]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Orientation {
-    North,
-    South,
-    East,
-    West,
+    North = 0,
+    South = 1,
+    East = 2,
+    West = 3,
 }
 
 impl Orientation {
@@ -33,9 +37,11 @@ impl Orientation {
     }
 }
 
+#[wasm_bindgen]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Rotation {
-    Clockwise,
-    AntiClockwise,
-    Half,
+    Clockwise = 0,
+    AntiClockwise = 1,
+    Half = 2,
 }

@@ -1,9 +1,10 @@
 use std::fmt;
 
-use crate::{piece::PiecePoints, point::Point};
+use wasm_bindgen::prelude::wasm_bindgen;
 
-pub type BoardFill = [u64; 4];
+use crate::{piece::PiecePoints, point::ISizePoint};
 
+#[wasm_bindgen]
 #[derive(Clone, PartialEq, Eq)]
 pub struct Board {
     /**
@@ -12,7 +13,7 @@ pub struct Board {
 
     The segments are ordered from bottom to top and the cells in each segment are ordered from bottom-left to top-right.
     */
-    fill: BoardFill,
+    fill: [u64; 4],
 }
 
 impl fmt::Debug for Board {
@@ -22,7 +23,7 @@ impl fmt::Debug for Board {
         for y in (0..24).map(|y| 23 - y) {
             board_result.push_str(&format!("\n{:0>2} ", y));
             for x in 0..10 {
-                board_result.push(if self.is_filled(&Point::new(x, y)) {
+                board_result.push(if self.is_filled(&ISizePoint::new(x, y)) {
                     'x'
                 } else {
                     '-'
@@ -61,7 +62,7 @@ impl Board {
 
     For convenience, we treat `x: -1` and `x: 10` as filled for the kick-table.
     */
-    pub fn is_filled(&self, at: &Point<isize>) -> bool {
+    pub fn is_filled(&self, at: &ISizePoint) -> bool {
         if at.x < 0 || at.x >= 10 || at.y < 0 {
             return true;
         }
@@ -74,7 +75,7 @@ impl Board {
         (*y_segment >> (at.x + y_idx * 10)) & 0b1 == 1
     }
 
-    pub fn fill(&mut self, point: &Point<isize>) {
+    pub fn fill(&mut self, point: &ISizePoint) {
         if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
             return;
         }
@@ -87,7 +88,7 @@ impl Board {
         *y_segment |= 0b1 << (point.x + y_idx * 10);
     }
 
-    pub fn empty(&mut self, point: &Point<isize>) {
+    pub fn empty(&mut self, point: &ISizePoint) {
         if point.x < 0 || point.x >= 10 || point.y < 0 || point.y >= 24 {
             return;
         }
@@ -128,7 +129,7 @@ impl Board {
     }
 
     pub fn can_place(&self, piece_points: &PiecePoints) -> bool {
-        let offset = Point::new(0, -1);
+        let offset = ISizePoint::new(0, -1);
         piece_points
             .iter()
             .any(|point| self.is_filled(&(*point + offset)))
@@ -141,7 +142,7 @@ impl Board {
     }
 
     pub fn is_line_filled(&self, y: isize) -> bool {
-        (0..10).all(|x| self.is_filled(&Point::new(x, y)))
+        (0..10).all(|x| self.is_filled(&ISizePoint::new(x, y)))
     }
 
     pub fn clear_filled_lines(&mut self) {
@@ -152,8 +153,8 @@ impl Board {
                 continue;
             }
             for x in 0..10 {
-                if self.is_filled(&Point::new(x, y)) {
-                    next_board.fill(&Point::new(x, next_y));
+                if self.is_filled(&ISizePoint::new(x, y)) {
+                    next_board.fill(&ISizePoint::new(x, next_y));
                 }
             }
             next_y += 1;
@@ -172,12 +173,12 @@ mod tests {
         rotation_system: RotationSystem::SRS,
     };
 
-    fn assert_only_filled(board: &Board, fills: Vec<Point<isize>>) {
+    fn assert_only_filled(board: &Board, fills: Vec<ISizePoint>) {
         for x in 0..10 {
             for y in 0..24 {
-                let is_filled = fills.contains(&Point::new(x, y));
+                let is_filled = fills.contains(&ISizePoint::new(x, y));
                 assert_eq!(
-                    board.is_filled(&Point::new(x, y)),
+                    board.is_filled(&ISizePoint::new(x, y)),
                     is_filled,
                     "Expected board to be {} at ({}, {})",
                     if is_filled { "filled" } else { "empty" },
@@ -188,12 +189,12 @@ mod tests {
         }
     }
 
-    fn assert_only_emptied(board: &Board, empties: Vec<Point<isize>>) {
+    fn assert_only_emptied(board: &Board, empties: Vec<ISizePoint>) {
         for x in 0..10 {
             for y in 0..24 {
-                let is_empty = empties.contains(&Point::new(x, y));
+                let is_empty = empties.contains(&ISizePoint::new(x, y));
                 assert_eq!(
-                    !board.is_filled(&Point::new(x, y)),
+                    !board.is_filled(&ISizePoint::new(x, y)),
                     is_empty,
                     "Expected board to be {} at ({}, {})",
                     if is_empty { "empty" } else { "filled" },
@@ -221,30 +222,30 @@ mod tests {
             assert_only_filled(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(1, 0),
-                    Point::new(3, 0),
-                    Point::new(4, 0),
-                    Point::new(5, 0),
-                    Point::new(6, 0),
-                    Point::new(8, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 1),
-                    Point::new(8, 1),
-                    Point::new(9, 1),
-                    Point::new(0, 2),
-                    Point::new(0, 6),
-                    Point::new(1, 6),
-                    Point::new(3, 6),
-                    Point::new(4, 6),
-                    Point::new(5, 6),
-                    Point::new(6, 6),
-                    Point::new(8, 6),
-                    Point::new(9, 6),
-                    Point::new(0, 7),
-                    Point::new(8, 7),
-                    Point::new(9, 7),
-                    Point::new(0, 8),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(1, 0),
+                    ISizePoint::new(3, 0),
+                    ISizePoint::new(4, 0),
+                    ISizePoint::new(5, 0),
+                    ISizePoint::new(6, 0),
+                    ISizePoint::new(8, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 1),
+                    ISizePoint::new(8, 1),
+                    ISizePoint::new(9, 1),
+                    ISizePoint::new(0, 2),
+                    ISizePoint::new(0, 6),
+                    ISizePoint::new(1, 6),
+                    ISizePoint::new(3, 6),
+                    ISizePoint::new(4, 6),
+                    ISizePoint::new(5, 6),
+                    ISizePoint::new(6, 6),
+                    ISizePoint::new(8, 6),
+                    ISizePoint::new(9, 6),
+                    ISizePoint::new(0, 7),
+                    ISizePoint::new(8, 7),
+                    ISizePoint::new(9, 7),
+                    ISizePoint::new(0, 8),
                 ],
             );
         }
@@ -255,12 +256,12 @@ mod tests {
 
             for y in 0..24 {
                 assert!(
-                    board.is_filled(&Point::new(-1, y)),
+                    board.is_filled(&ISizePoint::new(-1, y)),
                     "Expected left wall to be filled on line {}",
                     y
                 );
                 assert!(
-                    board.is_filled(&Point::new(10, y)),
+                    board.is_filled(&ISizePoint::new(10, y)),
                     "Expected right wall to be filled on line {}",
                     y
                 );
@@ -273,7 +274,7 @@ mod tests {
 
             for x in 0..10 {
                 assert!(
-                    board.is_filled(&Point::new(x, -1)),
+                    board.is_filled(&ISizePoint::new(x, -1)),
                     "Expected floor to be filled on column {}",
                     x
                 );
@@ -288,51 +289,55 @@ mod tests {
         fn fills_cells() {
             let mut board = Board::empty_board();
 
-            board.fill(&Point::new(0, 0));
-            assert_only_filled(&board, vec![Point::new(0, 0)]);
+            board.fill(&ISizePoint::new(0, 0));
+            assert_only_filled(&board, vec![ISizePoint::new(0, 0)]);
 
-            board.fill(&Point::new(9, 0));
-            assert_only_filled(&board, vec![Point::new(0, 0), Point::new(9, 0)]);
+            board.fill(&ISizePoint::new(9, 0));
+            assert_only_filled(&board, vec![ISizePoint::new(0, 0), ISizePoint::new(9, 0)]);
 
-            board.fill(&Point::new(0, 10));
-            assert_only_filled(
-                &board,
-                vec![Point::new(0, 0), Point::new(9, 0), Point::new(0, 10)],
-            );
-
-            board.fill(&Point::new(9, 10));
+            board.fill(&ISizePoint::new(0, 10));
             assert_only_filled(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
                 ],
             );
 
-            board.fill(&Point::new(0, 20));
+            board.fill(&ISizePoint::new(9, 10));
             assert_only_filled(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
-                    Point::new(0, 20),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
                 ],
             );
 
-            board.fill(&Point::new(9, 20));
+            board.fill(&ISizePoint::new(0, 20));
             assert_only_filled(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
-                    Point::new(0, 20),
-                    Point::new(9, 20),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
+                    ISizePoint::new(0, 20),
+                ],
+            );
+
+            board.fill(&ISizePoint::new(9, 20));
+            assert_only_filled(
+                &board,
+                vec![
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
+                    ISizePoint::new(0, 20),
+                    ISizePoint::new(9, 20),
                 ],
             );
         }
@@ -345,51 +350,55 @@ mod tests {
         fn empties_cells() {
             let mut board = Board::filled_board();
 
-            board.empty(&Point::new(0, 0));
-            assert_only_emptied(&board, vec![Point::new(0, 0)]);
+            board.empty(&ISizePoint::new(0, 0));
+            assert_only_emptied(&board, vec![ISizePoint::new(0, 0)]);
 
-            board.empty(&Point::new(9, 0));
-            assert_only_emptied(&board, vec![Point::new(0, 0), Point::new(9, 0)]);
+            board.empty(&ISizePoint::new(9, 0));
+            assert_only_emptied(&board, vec![ISizePoint::new(0, 0), ISizePoint::new(9, 0)]);
 
-            board.empty(&Point::new(0, 10));
-            assert_only_emptied(
-                &board,
-                vec![Point::new(0, 0), Point::new(9, 0), Point::new(0, 10)],
-            );
-
-            board.empty(&Point::new(9, 10));
+            board.empty(&ISizePoint::new(0, 10));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
                 ],
             );
 
-            board.empty(&Point::new(0, 20));
+            board.empty(&ISizePoint::new(9, 10));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
-                    Point::new(0, 20),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
                 ],
             );
 
-            board.empty(&Point::new(9, 20));
+            board.empty(&ISizePoint::new(0, 20));
             assert_only_emptied(
                 &board,
                 vec![
-                    Point::new(0, 0),
-                    Point::new(9, 0),
-                    Point::new(0, 10),
-                    Point::new(9, 10),
-                    Point::new(0, 20),
-                    Point::new(9, 20),
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
+                    ISizePoint::new(0, 20),
+                ],
+            );
+
+            board.empty(&ISizePoint::new(9, 20));
+            assert_only_emptied(
+                &board,
+                vec![
+                    ISizePoint::new(0, 0),
+                    ISizePoint::new(9, 0),
+                    ISizePoint::new(0, 10),
+                    ISizePoint::new(9, 10),
+                    ISizePoint::new(0, 20),
+                    ISizePoint::new(9, 20),
                 ],
             );
         }
@@ -409,7 +418,7 @@ mod tests {
         fn false_if_any_filled() {
             let mut board = Board::empty_board();
 
-            board.fill(&Point::new(3, 4));
+            board.fill(&ISizePoint::new(3, 4));
 
             assert!(!board.is_empty_board());
         }
@@ -522,7 +531,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point::new(3, 21),
+                position: ISizePoint::new(3, 21),
             };
 
             assert!(
@@ -546,7 +555,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point::new(3, 21),
+                position: ISizePoint::new(3, 21),
             };
 
             assert!(
@@ -563,7 +572,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point::new(-1, 0),
+                position: ISizePoint::new(-1, 0),
             };
 
             assert!(
@@ -583,7 +592,7 @@ mod tests {
             let board = Board::empty_board();
 
             let piece = Piece {
-                position: Point::new(3, -2),
+                position: ISizePoint::new(3, -2),
                 ..Piece::spawn(&PieceKind::I, &CONFIG)
             };
 
@@ -595,7 +604,7 @@ mod tests {
             let board = Board::empty_board();
 
             let piece = Piece {
-                position: Point::new(3, -1),
+                position: ISizePoint::new(3, -1),
                 ..Piece::spawn(&PieceKind::I, &CONFIG)
             };
 
@@ -605,11 +614,11 @@ mod tests {
         #[test]
         fn can_place_j_piece_on_filled_cell() {
             let mut board = Board::empty_board();
-            board.fill(&Point::new(0, 0));
-            board.fill(&Point::new(0, 1));
+            board.fill(&ISizePoint::new(0, 0));
+            board.fill(&ISizePoint::new(0, 1));
 
             let piece = Piece {
-                position: Point::new(0, 1),
+                position: ISizePoint::new(0, 1),
                 ..Piece::spawn(&PieceKind::J, &CONFIG)
             };
 
@@ -629,7 +638,7 @@ mod tests {
             let piece = Piece {
                 kind: PieceKind::I,
                 orientation: Orientation::North,
-                position: Point::new(3, 21),
+                position: ISizePoint::new(3, 21),
             };
             board.fill_piece_points(&piece.get_points(&CONFIG));
 
@@ -669,7 +678,7 @@ mod tests {
         fn line_not_filled_if_any_empty_cell() {
             let mut board = Board::filled_board();
             for y in 0..24 {
-                board.empty(&Point::new(5, y));
+                board.empty(&ISizePoint::new(5, y));
             }
             for y in 0..24 {
                 assert!(!board.is_line_filled(y));
@@ -684,7 +693,7 @@ mod tests {
         fn no_difference_if_no_filled_lines() {
             let mut board = Board::filled_board();
             for y in 0..24 {
-                board.empty(&Point::new(y % 10, y));
+                board.empty(&ISizePoint::new(y % 10, y));
             }
 
             let mut next_board = board.clone();
@@ -700,18 +709,18 @@ mod tests {
 
                 // filled lines to clear
                 for x in 0..10 {
-                    b.fill(&Point::new(x, 0));
-                    b.fill(&Point::new(x, 1));
-                    b.fill(&Point::new(x, 4));
-                    b.fill(&Point::new(x, 5));
+                    b.fill(&ISizePoint::new(x, 0));
+                    b.fill(&ISizePoint::new(x, 1));
+                    b.fill(&ISizePoint::new(x, 4));
+                    b.fill(&ISizePoint::new(x, 5));
                 }
                 // diagonal pattern that should be moved down
-                b.fill(&Point::new(2, 2));
-                b.fill(&Point::new(3, 3));
-                b.fill(&Point::new(6, 6));
-                b.fill(&Point::new(7, 7));
-                b.fill(&Point::new(8, 8));
-                b.fill(&Point::new(9, 9));
+                b.fill(&ISizePoint::new(2, 2));
+                b.fill(&ISizePoint::new(3, 3));
+                b.fill(&ISizePoint::new(6, 6));
+                b.fill(&ISizePoint::new(7, 7));
+                b.fill(&ISizePoint::new(8, 8));
+                b.fill(&ISizePoint::new(9, 9));
 
                 b
             };
@@ -722,12 +731,12 @@ mod tests {
             let expected_board = {
                 let mut b = Board::empty_board();
 
-                b.fill(&Point::new(2, 0));
-                b.fill(&Point::new(3, 1));
-                b.fill(&Point::new(6, 2));
-                b.fill(&Point::new(7, 3));
-                b.fill(&Point::new(8, 4));
-                b.fill(&Point::new(9, 5));
+                b.fill(&ISizePoint::new(2, 0));
+                b.fill(&ISizePoint::new(3, 1));
+                b.fill(&ISizePoint::new(6, 2));
+                b.fill(&ISizePoint::new(7, 3));
+                b.fill(&ISizePoint::new(8, 4));
+                b.fill(&ISizePoint::new(9, 5));
 
                 b
             };
