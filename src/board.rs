@@ -1,5 +1,5 @@
 use crate::point::ISizePoint;
-use std::fmt;
+use std::fmt::{self, Write};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -16,19 +16,17 @@ pub struct Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        const BOARD_CAPACITY: usize = 24 * 14;
-        let mut board_result = String::with_capacity(BOARD_CAPACITY);
         for y in (0..24).map(|y| 23 - y) {
-            board_result.push_str(&format!("\n{:0>2} ", y));
+            f.write_str(&format!("\n{:0>2} ", y))?;
             for x in 0..10 {
-                board_result.push(if self.is_filled(&ISizePoint::new(x, y)) {
+                f.write_char(if self.is_filled(&ISizePoint::new(x, y)) {
                     'x'
                 } else {
                     '-'
-                });
+                })?;
             }
         }
-        f.write_str(&board_result)
+        Ok(())
     }
 }
 
