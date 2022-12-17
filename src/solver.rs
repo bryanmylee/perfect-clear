@@ -1,4 +1,5 @@
-use crate::state::{Game, State};
+use crate::game::Game;
+use crate::state::State;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
