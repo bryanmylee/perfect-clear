@@ -82,9 +82,7 @@ impl State {
             current_prob: 1.0,
         }
     }
-}
 
-impl State {
     pub fn reduce(&self, action: &Action, config: &Config) -> Result<State, ReduceError> {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
