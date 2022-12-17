@@ -33,6 +33,17 @@ impl Game {
         }
     }
 
+    pub fn reduce(&self, config: &Config, action: &Action) -> Result<Game, ReduceError> {
+        match action {
+            Action::Move(mov) => self
+                .with_move(config, mov)
+                .map_err(|e| ReduceError::Move(e)),
+            Action::Hold { switch } => self
+                .with_hold_used(config, *switch)
+                .map_err(|e| ReduceError::Hold(e)),
+        }
+    }
+
     pub fn with_move(&self, config: &Config, mov: &Move) -> Result<Game, MoveError> {
         match mov {
             Move::Rotate(rotation) => self.with_rotation(config, &rotation),
@@ -102,6 +113,40 @@ impl Game {
             ..self.clone()
         })
     }
+
+    fn with_hold_used(&self, config: &Config, switch: bool) -> Result<Game, HoldError> {
+        if self.is_hold_used {
+            return Err(HoldError::NotAvailable);
+        }
+
+        if !switch {
+            return Ok(Game {
+                is_hold_used: true,
+                ..self.clone()
+            });
+        }
+
+        let Some(hold_kind) = self.hold_kind.as_ref() else {
+            return Err(HoldError::NoHoldPiece);
+        };
+
+        let next_piece = Piece::spawn(&hold_kind, config);
+
+        if !self.board.can_fit(&next_piece.get_points(config)) {
+            return Err(HoldError::HoldPieceCollision);
+        }
+
+        let Some(piece) = self.piece.as_ref() else {
+            return Err(HoldError::NoPiece);
+        };
+
+        Ok(Game {
+            is_hold_used: true,
+            piece: Some(next_piece),
+            hold_kind: Some(piece.kind),
+            ..self.clone()
+        })
+    }
 }
 
 #[wasm_bindgen]
@@ -139,6 +184,18 @@ impl Game {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Action {
+    Move(Move),
+    Hold { switch: bool },
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ReduceError {
+    Move(MoveError),
+    Hold(HoldError),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Move {
     Rotate(Rotation),
     Translate(Direction),
@@ -148,6 +205,14 @@ pub enum Move {
 pub enum MoveError {
     NoPiece,
     InvalidMove,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum HoldError {
+    NotAvailable,
+    NoHoldPiece,
+    NoPiece,
+    HoldPieceCollision,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -475,6 +540,93 @@ mod tests {
 
             let next_game = next_game.with_move(&CONFIG, &Move::Translate(Direction::Down));
             assert_eq!(next_game, Err(MoveError::InvalidMove));
+        }
+    }
+
+    mod with_hold_used {
+        use super::*;
+
+        #[test]
+        fn invalid_if_no_active_piece() {
+            let game = Game {
+                hold_kind: Some(PieceKind::J),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Hold { switch: true });
+
+            assert_eq!(next_game, Err(ReduceError::Hold(HoldError::NoPiece)));
+        }
+
+        #[test]
+        fn invalid_if_no_hold_piece() {
+            let game = Game {
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Hold { switch: true });
+
+            assert_eq!(next_game, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
+        }
+
+        #[test]
+        fn invalid_if_new_piece_intersects_board() {
+            let mut board = Board::empty_board();
+            for x in 3..7 {
+                board.fill(&ISizePoint::new(x, 20));
+            }
+
+            let game = Game {
+                board,
+                hold_kind: Some(PieceKind::I),
+                piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Hold { switch: true });
+
+            assert_eq!(
+                next_game,
+                Err(ReduceError::Hold(HoldError::HoldPieceCollision)),
+                "Expected state to be invalid if next active piece intersects the board",
+            )
+        }
+
+        #[test]
+        fn consumes_hold_and_swaps_hold() {
+            let game = Game {
+                hold_kind: Some(PieceKind::J),
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Hold { switch: true });
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+
+            assert!(next_game.is_hold_used);
+            assert_eq!(next_game.hold_kind.unwrap(), PieceKind::I);
+            assert_eq!(next_game.piece.as_ref().unwrap().kind, PieceKind::J);
+        }
+
+        #[test]
+        fn consumes_hold_without_swapping_hold() {
+            let game = Game {
+                hold_kind: Some(PieceKind::J),
+                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Hold { switch: false });
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+
+            assert!(next_game.is_hold_used);
+            assert_eq!(next_game.hold_kind.unwrap(), PieceKind::J);
+            assert_eq!(next_game.piece.as_ref().unwrap().kind, PieceKind::I);
         }
     }
 }

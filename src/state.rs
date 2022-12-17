@@ -28,7 +28,6 @@ impl State {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
             Action::GuessNext { kind, prob } => self.with_guessed_next(config, kind, *prob),
-            Action::Hold { switch } => self.with_hold_used(config, *switch),
             Action::Place => self.with_placed_piece(config),
         }
     }
@@ -82,48 +81,6 @@ impl State {
         })
     }
 
-    fn with_hold_used(&self, config: &Config, switch: bool) -> Result<State, ReduceError> {
-        if self.game.is_hold_used {
-            return Err(ReduceError::Hold(HoldError::NotAvailable));
-        }
-
-        if !switch {
-            let next_state = self.clone();
-            return Ok(State {
-                game: Game {
-                    is_hold_used: true,
-                    ..next_state.game
-                },
-                ..next_state
-            });
-        }
-
-        let Some(hold_kind) = self.game.hold_kind.as_ref() else {
-            return Err(ReduceError::Hold(HoldError::NoHoldPiece));
-        };
-
-        let next_piece = Piece::spawn(&hold_kind, config);
-
-        if !self.game.board.can_fit(&next_piece.get_points(config)) {
-            return Err(ReduceError::GameOver);
-        }
-
-        let Some(piece) = self.game.piece.as_ref() else {
-            return Err(ReduceError::Hold(HoldError::NoPiece))
-        };
-
-        let next_state = self.clone();
-        Ok(State {
-            game: Game {
-                is_hold_used: true,
-                piece: Some(next_piece),
-                hold_kind: Some(piece.kind),
-                ..next_state.game
-            },
-            ..next_state
-        })
-    }
-
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
         let Some(piece) = &self.game.piece else {
             return Err(ReduceError::Place(PlaceError::NoPiece));
@@ -153,7 +110,6 @@ impl State {
 pub enum Action {
     ConsumeQueue,
     GuessNext { kind: PieceKind, prob: f32 },
-    Hold { switch: bool },
     Place,
 }
 
@@ -161,7 +117,6 @@ pub enum Action {
 pub enum ReduceError {
     Place(PlaceError),
     ConsumeQueue(ConsumeQueueError),
-    Hold(HoldError),
     GameOver,
     NoPerfectClear,
 }
@@ -175,13 +130,6 @@ pub enum PlaceError {
 #[derive(Debug, PartialEq)]
 pub enum ConsumeQueueError {
     QueueEmpty,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum HoldError {
-    NotAvailable,
-    NoHoldPiece,
-    NoPiece,
 }
 
 #[cfg(test)]
@@ -376,108 +324,6 @@ mod tests {
             assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
 
             assert_eq!(next_state.current_prob, 0.5);
-        }
-    }
-
-    mod with_hold_used {
-        use super::*;
-
-        #[test]
-        fn invalid_if_no_active_piece() {
-            let state = State {
-                game: Game {
-                    hold_kind: Some(PieceKind::J),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
-
-            assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoPiece)));
-        }
-
-        #[test]
-        fn invalid_if_no_hold_piece() {
-            let state = State {
-                game: Game {
-                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
-
-            assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
-        }
-
-        #[test]
-        fn invalid_if_new_piece_intersects_board() {
-            let mut board = Board::empty_board();
-            for x in 3..7 {
-                board.fill(&ISizePoint::new(x, 20));
-            }
-
-            let state = State {
-                game: Game {
-                    board,
-                    hold_kind: Some(PieceKind::I),
-                    piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
-
-            assert_eq!(
-                next_state,
-                Err(ReduceError::GameOver),
-                "Expected state to be invalid if next active piece intersects the board",
-            )
-        }
-
-        #[test]
-        fn consumes_hold_and_swaps_hold() {
-            let state = State {
-                game: Game {
-                    hold_kind: Some(PieceKind::J),
-                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-
-            assert!(next_state.game.is_hold_used);
-            assert_eq!(next_state.game.hold_kind.unwrap(), PieceKind::I);
-            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
-        }
-
-        #[test]
-        fn consumes_hold_without_swapping_hold() {
-            let state = State {
-                game: Game {
-                    hold_kind: Some(PieceKind::J),
-                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: false });
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-
-            assert!(next_state.game.is_hold_used);
-            assert_eq!(next_state.game.hold_kind.unwrap(), PieceKind::J);
-            assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::I);
         }
     }
 
