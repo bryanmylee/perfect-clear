@@ -1,9 +1,6 @@
-use crate::board::Board;
-use crate::config::{srs, Config};
+use crate::config::Config;
 use crate::game::Game;
 use crate::piece::{Piece, PieceKind};
-use crate::point::ISizePoint;
-use crate::rotation::Rotation;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
@@ -20,25 +17,18 @@ pub struct State {
 impl State {
     pub fn initial() -> State {
         State {
-            game: Game {
-                board: Board::empty_board(),
-                piece: None,
-                hold_kind: None,
-                is_hold_used: false,
-                queue: [None; 7],
-            },
+            game: Game::initial(),
             seen: [None; 14],
             moves_remaining: 10,
             current_prob: 1.0,
         }
     }
 
-    pub fn reduce(&self, action: &Action, config: &Config) -> Result<State, ReduceError> {
+    pub fn reduce(&self, config: &Config, action: &Action) -> Result<State, ReduceError> {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
             Action::GuessNext { kind, prob } => self.with_guessed_next(config, kind, *prob),
             Action::Hold { switch } => self.with_hold_used(config, *switch),
-            Action::Move(mov) => self.with_move(config, *mov),
             Action::Place => self.with_placed_piece(config),
         }
     }
@@ -134,92 +124,6 @@ impl State {
         })
     }
 
-    fn with_move(&self, config: &Config, mov: Move) -> Result<State, ReduceError> {
-        match mov {
-            Move::Rotate(rotation) => self.with_rotation(config, &rotation),
-            Move::Translate(direction) => self.with_translation(config, &direction),
-        }
-    }
-
-    fn with_rotation(&self, config: &Config, rotation: &Rotation) -> Result<State, ReduceError> {
-        let Some(piece) = self.game.piece.as_ref() else {
-            return Err(ReduceError::Move(MoveError::NoPiece));
-        };
-
-        let from_orientation = piece.orientation;
-        let to_orientation = from_orientation.rotated(rotation);
-
-        let mut rotated_piece = Piece {
-            orientation: to_orientation,
-            ..piece.clone()
-        };
-        let piece_points = rotated_piece.get_points(config);
-
-        if self.game.board.can_fit(&piece_points) {
-            let next_state = self.clone();
-            return Ok(State {
-                game: Game {
-                    piece: Some(rotated_piece),
-                    ..next_state.game
-                },
-                ..next_state
-            });
-        }
-
-        let Some(kicks) = srs::kick_table(&piece.kind, &from_orientation, &to_orientation) else {
-            return Err(ReduceError::Move(MoveError::InvalidMove));
-        };
-
-        for kick in kicks {
-            let kicked_points = piece_points.map(|point| point + kick);
-            if self.game.board.can_fit(&kicked_points) {
-                rotated_piece.position += kick;
-                let next_state = self.clone();
-                return Ok(State {
-                    game: Game {
-                        piece: Some(rotated_piece),
-                        ..next_state.game
-                    },
-                    ..next_state
-                });
-            }
-        }
-
-        Err(ReduceError::Move(MoveError::InvalidMove))
-    }
-
-    fn with_translation(
-        &self,
-        config: &Config,
-        direction: &Direction,
-    ) -> Result<State, ReduceError> {
-        let Some(piece) = self.game.piece.as_ref() else {
-            return Err(ReduceError::Move(MoveError::NoPiece));
-        };
-
-        let direction_offset = direction.get_offset();
-
-        let next_piece = Piece {
-            position: piece.position + direction_offset,
-            ..piece.clone()
-        };
-
-        let next_piece_points = next_piece.get_points(config);
-
-        if !self.game.board.can_fit(&next_piece_points) {
-            return Err(ReduceError::Move(MoveError::InvalidMove));
-        }
-
-        let next_state = self.clone();
-        Ok(State {
-            game: Game {
-                piece: Some(next_piece),
-                ..next_state.game
-            },
-            ..next_state
-        })
-    }
-
     fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
         let Some(piece) = &self.game.piece else {
             return Err(ReduceError::Place(PlaceError::NoPiece));
@@ -250,7 +154,6 @@ pub enum Action {
     ConsumeQueue,
     GuessNext { kind: PieceKind, prob: f32 },
     Hold { switch: bool },
-    Move(Move),
     Place,
 }
 
@@ -259,7 +162,6 @@ pub enum ReduceError {
     Place(PlaceError),
     ConsumeQueue(ConsumeQueueError),
     Hold(HoldError),
-    Move(MoveError),
     GameOver,
     NoPerfectClear,
 }
@@ -282,38 +184,11 @@ pub enum HoldError {
     NoPiece,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum MoveError {
-    NoPiece,
-    InvalidMove,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Move {
-    Rotate(Rotation),
-    Translate(Direction),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Direction {
-    Left,
-    Right,
-    Down,
-}
-
-impl Direction {
-    pub fn get_offset(&self) -> ISizePoint {
-        match self {
-            Direction::Down => ISizePoint::new(0, -1),
-            Direction::Left => ISizePoint::new(-1, 0),
-            Direction::Right => ISizePoint::new(1, 0),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::board::Board;
     use crate::config::RotationSystem;
+    use crate::point::ISizePoint;
 
     use super::*;
 
@@ -328,7 +203,7 @@ mod tests {
         fn invalid_if_queue_empty() {
             let state = State::initial();
 
-            let next_state = state.reduce(&Action::ConsumeQueue, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::ConsumeQueue);
 
             assert_eq!(
                 next_state,
@@ -356,7 +231,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::ConsumeQueue, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::ConsumeQueue);
 
             assert_eq!(
                 next_state,
@@ -378,7 +253,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::ConsumeQueue, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::ConsumeQueue);
 
             assert!(next_state.is_ok());
 
@@ -407,7 +282,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::ConsumeQueue, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::ConsumeQueue);
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -427,7 +302,7 @@ mod tests {
                 ]
             );
 
-            let next_state = next_state.reduce(&Action::ConsumeQueue, &CONFIG);
+            let next_state = next_state.reduce(&CONFIG, &Action::ConsumeQueue);
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -468,11 +343,11 @@ mod tests {
             };
 
             let next_state = state.reduce(
+                &CONFIG,
                 &Action::GuessNext {
                     kind: PieceKind::I,
                     prob: 0.5,
                 },
-                &CONFIG,
             );
 
             assert_eq!(
@@ -487,11 +362,11 @@ mod tests {
             let state = State::initial();
 
             let next_state = state.reduce(
+                &CONFIG,
                 &Action::GuessNext {
                     kind: PieceKind::J,
                     prob: 0.5,
                 },
-                &CONFIG,
             );
 
             assert!(next_state.is_ok());
@@ -517,7 +392,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
 
             assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoPiece)));
         }
@@ -532,7 +407,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
 
             assert_eq!(next_state, Err(ReduceError::Hold(HoldError::NoHoldPiece)));
         }
@@ -554,7 +429,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
 
             assert_eq!(
                 next_state,
@@ -574,7 +449,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold { switch: true }, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: true });
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -595,7 +470,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Hold { switch: false }, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Hold { switch: false });
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
@@ -606,341 +481,6 @@ mod tests {
         }
     }
 
-    mod with_rotation {
-        use crate::rotation::Orientation;
-
-        use super::*;
-
-        mod i_piece {
-            use super::*;
-
-            #[test]
-            fn no_kick() {
-                let state = State {
-                    game: Game {
-                        piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
-                        ..State::initial().game
-                    },
-                    ..State::initial()
-                };
-
-                let original_position = state.game.piece.as_ref().unwrap().position;
-
-                let next_state =
-                    state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
-
-                assert!(next_state.is_ok());
-                let next_state = next_state.unwrap();
-
-                assert!(next_state.game.piece.is_some());
-                assert_eq!(
-                    next_state.game.piece.as_ref().unwrap().orientation,
-                    Orientation::East
-                );
-                assert_eq!(
-                    next_state.game.piece.as_ref().unwrap().position,
-                    original_position,
-                );
-            }
-
-            mod north_and_east {
-                use super::*;
-
-                #[test]
-                fn kick_one() {
-                    let mut board = Board::filled_board();
-
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
-
-                    board.empty(&ISizePoint::new(3, 0));
-                    board.empty(&ISizePoint::new(3, 1));
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(3, 3));
-
-                    let state = State {
-                        game: Game {
-                            board,
-                            piece: Some(Piece {
-                                position: ISizePoint::new(3, 0),
-                                ..Piece::spawn(&PieceKind::I, &CONFIG)
-                            }),
-                            ..State::initial().game
-                        },
-                        ..State::initial()
-                    };
-
-                    let next_state =
-                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::East
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(1, 0),
-                    );
-
-                    let next_state = next_state.reduce(
-                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
-                        &CONFIG,
-                    );
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::North
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
-                    );
-                }
-
-                #[test]
-                fn kick_two() {
-                    let mut board = Board::filled_board();
-
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
-
-                    board.empty(&ISizePoint::new(6, 0));
-                    board.empty(&ISizePoint::new(6, 1));
-                    board.empty(&ISizePoint::new(6, 2));
-                    board.empty(&ISizePoint::new(6, 3));
-
-                    let state = State {
-                        game: Game {
-                            board,
-                            piece: Some(Piece {
-                                position: ISizePoint::new(3, 0),
-                                ..Piece::spawn(&PieceKind::I, &CONFIG)
-                            }),
-                            ..State::initial().game
-                        },
-                        ..State::initial()
-                    };
-
-                    let next_state =
-                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::East
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(4, 0),
-                    );
-
-                    let next_state = next_state.reduce(
-                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
-                        &CONFIG,
-                    );
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::North
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
-                    );
-                }
-
-                #[test]
-                fn kick_three() {
-                    let mut board = Board::filled_board();
-
-                    board.empty(&ISizePoint::new(3, 3));
-                    board.empty(&ISizePoint::new(4, 3));
-                    board.empty(&ISizePoint::new(5, 3));
-                    board.empty(&ISizePoint::new(6, 3));
-
-                    board.empty(&ISizePoint::new(3, 0));
-                    board.empty(&ISizePoint::new(3, 1));
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(3, 3));
-
-                    let state = State {
-                        game: Game {
-                            board,
-                            piece: Some(Piece {
-                                position: ISizePoint::new(3, 1),
-                                ..Piece::spawn(&PieceKind::I, &CONFIG)
-                            }),
-                            ..State::initial().game
-                        },
-                        ..State::initial()
-                    };
-
-                    let next_state =
-                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::East
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(1, 0),
-                    );
-
-                    let next_state = next_state.reduce(
-                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
-                        &CONFIG,
-                    );
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::North
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 1)
-                    );
-                }
-
-                #[test]
-                fn kick_four() {
-                    let mut board = Board::filled_board();
-
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
-
-                    board.empty(&ISizePoint::new(6, 2));
-                    board.empty(&ISizePoint::new(6, 3));
-                    board.empty(&ISizePoint::new(6, 4));
-                    board.empty(&ISizePoint::new(6, 5));
-
-                    let state = State {
-                        game: Game {
-                            board,
-                            piece: Some(Piece {
-                                position: ISizePoint::new(3, 0),
-                                ..Piece::spawn(&PieceKind::I, &CONFIG)
-                            }),
-                            ..State::initial().game
-                        },
-                        ..State::initial()
-                    };
-
-                    let next_state =
-                        state.reduce(&Action::Move(Move::Rotate(Rotation::Clockwise)), &CONFIG);
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::East
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(4, 2),
-                    );
-
-                    let next_state = next_state.reduce(
-                        &Action::Move(Move::Rotate(Rotation::AntiClockwise)),
-                        &CONFIG,
-                    );
-
-                    assert!(next_state.is_ok());
-                    let next_state = next_state.unwrap();
-
-                    assert!(next_state.game.piece.is_some());
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().orientation,
-                        Orientation::North
-                    );
-                    assert_eq!(
-                        next_state.game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
-                    );
-                }
-            }
-        }
-    }
-
-    mod with_translation {
-        use super::*;
-
-        #[test]
-        fn moves_piece() {
-            let state = State {
-                game: Game {
-                    piece: Some(Piece {
-                        position: ISizePoint::new(3, -1),
-                        ..Piece::spawn(&PieceKind::I, &CONFIG)
-                    }),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&Action::Move(Move::Translate(Direction::Down)), &CONFIG);
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-
-            let piece = next_state.game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(3, -2));
-
-            let next_state =
-                next_state.reduce(&Action::Move(Move::Translate(Direction::Left)), &CONFIG);
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-
-            let piece = next_state.game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(2, -2));
-
-            let next_state =
-                next_state.reduce(&Action::Move(Move::Translate(Direction::Right)), &CONFIG);
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-
-            let piece = next_state.game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(3, -2));
-
-            let next_state =
-                next_state.reduce(&Action::Move(Move::Translate(Direction::Down)), &CONFIG);
-            assert_eq!(next_state, Err(ReduceError::Move(MoveError::InvalidMove)));
-        }
-    }
-
     mod with_placed_piece {
         use super::*;
 
@@ -948,7 +488,7 @@ mod tests {
         fn invalid_if_no_active_piece() {
             let state = State::initial();
 
-            let next_state = state.reduce(&Action::Place, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Place);
 
             assert_eq!(
                 next_state,
@@ -970,7 +510,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Place, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Place);
 
             assert_eq!(
                 next_state,
@@ -992,7 +532,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(&Action::Place, &CONFIG);
+            let next_state = state.reduce(&CONFIG, &Action::Place);
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
