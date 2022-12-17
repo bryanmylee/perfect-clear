@@ -1,9 +1,8 @@
-use wasm_bindgen::prelude::wasm_bindgen;
-
-use crate::state::State;
+use crate::state::{Game, State};
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-struct Solver {
+pub struct Solver {
     current_state: State,
 }
 
@@ -13,5 +12,9 @@ impl Solver {
         Solver {
             current_state: State::initial(),
         }
+    }
+
+    pub fn update_game(&mut self, game: Game) {
+        self.current_state.game = game;
     }
 }
