@@ -46,7 +46,7 @@ impl State {
         let mut new_queue = [None; 7];
         new_queue[..rest_piece_kinds.len()].clone_from_slice(rest_piece_kinds);
 
-        let mut next_state = self.clone();
+        let next_state = self.clone();
         Ok(State {
             game: Game {
                 queue: new_queue,
