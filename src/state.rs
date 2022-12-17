@@ -17,7 +17,7 @@ pub struct Game {
 
     pub is_hold_used: bool,
 
-    // fixed queue size to reduce heap allocations
+    /// Fixed queue size to reduce heap allocations.
     queue: [Option<PieceKind>; 7],
 }
 
@@ -59,7 +59,7 @@ impl Game {
 pub struct State {
     pub game: Game,
 
-    // only 2-bags needed at most to determine next piece probability
+    /// Only 2-bags needed at most to determine next piece probability.
     pub seen: [Option<PieceKind>; 14],
 
     pub moves_remaining: isize,
