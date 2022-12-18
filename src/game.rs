@@ -41,6 +41,9 @@ impl Game {
             Action::Hold { switch } => self
                 .with_hold_used(config, *switch)
                 .map_err(|e| ReduceError::Hold(e)),
+            Action::Place => self
+                .with_placed_piece(config)
+                .map_err(|e| ReduceError::Place(e)),
         }
     }
 
@@ -147,6 +150,27 @@ impl Game {
             ..self.clone()
         })
     }
+
+    fn with_placed_piece(&self, config: &Config) -> Result<Game, PlaceError> {
+        let Some(piece) = &self.piece else {
+            return Err(PlaceError::NoPiece);
+        };
+
+        let piece_points = piece.get_points(config);
+
+        if !self.board.can_place(&piece_points) {
+            return Err(PlaceError::PieceInAir);
+        }
+
+        let next_game = self.clone();
+        let mut next_board = next_game.board;
+        next_board.fill_piece_points(&piece_points);
+        Ok(Game {
+            board: next_board,
+            piece: None,
+            ..next_game
+        })
+    }
 }
 
 #[wasm_bindgen]
@@ -187,12 +211,14 @@ impl Game {
 pub enum Action {
     Move(Move),
     Hold { switch: bool },
+    Place,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ReduceError {
     Move(MoveError),
     Hold(HoldError),
+    Place(PlaceError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -213,6 +239,12 @@ pub enum HoldError {
     NoHoldPiece,
     NoPiece,
     HoldPieceCollision,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PlaceError {
+    NoPiece,
+    PieceInAir,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -627,6 +659,72 @@ mod tests {
             assert!(next_game.is_hold_used);
             assert_eq!(next_game.hold_kind.unwrap(), PieceKind::J);
             assert_eq!(next_game.piece.as_ref().unwrap().kind, PieceKind::I);
+        }
+    }
+
+    mod with_placed_piece {
+        use super::*;
+
+        #[test]
+        fn invalid_if_no_active_piece() {
+            let game = Game::initial();
+
+            let next_game = game.reduce(&CONFIG, &Action::Place);
+
+            assert_eq!(
+                next_game,
+                Err(ReduceError::Place(PlaceError::NoPiece)),
+                "Expected state to be invalid if placing without active piece"
+            );
+        }
+
+        #[test]
+        fn invalid_if_piece_in_air() {
+            let game = Game {
+                piece: Some(Piece {
+                    position: ISizePoint::new(3, -1),
+                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                }),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Place);
+
+            assert_eq!(
+                next_game,
+                Err(ReduceError::Place(PlaceError::PieceInAir)),
+                "Expected state to be invalid if placing without filled cell below piece"
+            );
+        }
+
+        #[test]
+        fn piece_placed() {
+            let game = Game {
+                piece: Some(Piece {
+                    position: ISizePoint::new(3, -2),
+                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                }),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Place);
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+            assert!(
+                next_game.piece.is_none(),
+                "Active piece should be none after placement"
+            );
+
+            let mut expected_board = Board::empty_board();
+            expected_board.fill(&ISizePoint::new(3, 0));
+            expected_board.fill(&ISizePoint::new(4, 0));
+            expected_board.fill(&ISizePoint::new(5, 0));
+            expected_board.fill(&ISizePoint::new(6, 0));
+            assert_eq!(
+                next_game.board, expected_board,
+                "Previous active piece should fill the board after placement"
+            );
         }
     }
 }

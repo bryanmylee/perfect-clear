@@ -28,7 +28,6 @@ impl State {
         match action {
             Action::ConsumeQueue => self.with_consumed_queue(config),
             Action::GuessNext { kind, prob } => self.with_guessed_next(config, kind, *prob),
-            Action::Place => self.with_placed_piece(config),
         }
     }
 
@@ -80,51 +79,19 @@ impl State {
             ..next_state
         })
     }
-
-    fn with_placed_piece(&self, config: &Config) -> Result<State, ReduceError> {
-        let Some(piece) = &self.game.piece else {
-            return Err(ReduceError::Place(PlaceError::NoPiece));
-        };
-
-        let piece_points = piece.get_points(config);
-
-        if !self.game.board.can_place(&piece_points) {
-            return Err(ReduceError::Place(PlaceError::PieceInAir));
-        }
-
-        let next_state = self.clone();
-        let mut next_board = next_state.game.board;
-        next_board.fill_piece_points(&piece_points);
-        Ok(State {
-            game: Game {
-                board: next_board,
-                piece: None,
-                ..next_state.game
-            },
-            ..next_state
-        })
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     ConsumeQueue,
     GuessNext { kind: PieceKind, prob: f32 },
-    Place,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ReduceError {
-    Place(PlaceError),
     ConsumeQueue(ConsumeQueueError),
     GameOver,
     NoPerfectClear,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum PlaceError {
-    NoPiece,
-    PieceInAir,
 }
 
 #[derive(Debug, PartialEq)]
@@ -324,78 +291,6 @@ mod tests {
             assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
 
             assert_eq!(next_state.current_prob, 0.5);
-        }
-    }
-
-    mod with_placed_piece {
-        use super::*;
-
-        #[test]
-        fn invalid_if_no_active_piece() {
-            let state = State::initial();
-
-            let next_state = state.reduce(&CONFIG, &Action::Place);
-
-            assert_eq!(
-                next_state,
-                Err(ReduceError::Place(PlaceError::NoPiece)),
-                "Expected state to be invalid if placing without active piece"
-            );
-        }
-
-        #[test]
-        fn invalid_if_piece_in_air() {
-            let state = State {
-                game: Game {
-                    piece: Some(Piece {
-                        position: ISizePoint::new(3, -1),
-                        ..Piece::spawn(&PieceKind::I, &CONFIG)
-                    }),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Place);
-
-            assert_eq!(
-                next_state,
-                Err(ReduceError::Place(PlaceError::PieceInAir)),
-                "Expected state to be invalid if placing without filled cell below piece"
-            );
-        }
-
-        #[test]
-        fn piece_placed() {
-            let state = State {
-                game: Game {
-                    piece: Some(Piece {
-                        position: ISizePoint::new(3, -2),
-                        ..Piece::spawn(&PieceKind::I, &CONFIG)
-                    }),
-                    ..State::initial().game
-                },
-                ..State::initial()
-            };
-
-            let next_state = state.reduce(&CONFIG, &Action::Place);
-
-            assert!(next_state.is_ok());
-            let next_state = next_state.unwrap();
-            assert!(
-                next_state.game.piece.is_none(),
-                "Active piece should be none after placement"
-            );
-
-            let mut expected_board = Board::empty_board();
-            expected_board.fill(&ISizePoint::new(3, 0));
-            expected_board.fill(&ISizePoint::new(4, 0));
-            expected_board.fill(&ISizePoint::new(5, 0));
-            expected_board.fill(&ISizePoint::new(6, 0));
-            assert_eq!(
-                next_state.game.board, expected_board,
-                "Previous active piece should fill the board after placement"
-            );
         }
     }
 }
