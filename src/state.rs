@@ -26,20 +26,24 @@ impl State {
 
     pub fn reduce(&self, config: &Config, action: &Action) -> Result<State, ReduceError> {
         match action {
-            Action::ConsumeQueue => self.with_consumed_queue(config),
-            Action::GuessNext { kind, prob } => self.with_guessed_next(config, kind, *prob),
+            Action::ConsumeQueue => self
+                .with_consumed_queue(config)
+                .map_err(|e| ReduceError::ConsumeQueue(e)),
+            Action::GuessNext { kind, prob } => self
+                .with_guessed_next(config, kind, *prob)
+                .map_err(|e| ReduceError::ConsumeQueue(e)),
         }
     }
 
-    fn with_consumed_queue(&self, config: &Config) -> Result<State, ReduceError> {
+    fn with_consumed_queue(&self, config: &Config) -> Result<State, QueueError> {
         let Some((Some(next_piece_kind), rest_piece_kinds)) = self.game.queue.split_first() else {
-            return Err(ReduceError::ConsumeQueue(ConsumeQueueError::QueueEmpty));
+            return Err(QueueError::QueueEmpty);
         };
 
         let next_piece = Piece::spawn(next_piece_kind, config);
 
         if !self.game.board.can_fit(&next_piece.get_points(config)) {
-            return Err(ReduceError::GameOver);
+            return Err(QueueError::PieceCollision);
         }
 
         let mut new_queue = [None; 7];
@@ -62,11 +66,11 @@ impl State {
         config: &Config,
         kind: &PieceKind,
         prob: f32,
-    ) -> Result<State, ReduceError> {
+    ) -> Result<State, QueueError> {
         let next_piece = Piece::spawn(kind, config);
 
         if !self.game.board.can_fit(&next_piece.get_points(config)) {
-            return Err(ReduceError::GameOver);
+            return Err(QueueError::PieceCollision);
         }
 
         let next_state = self.clone();
@@ -89,14 +93,13 @@ pub enum Action {
 
 #[derive(Debug, PartialEq)]
 pub enum ReduceError {
-    ConsumeQueue(ConsumeQueueError),
-    GameOver,
-    NoPerfectClear,
+    ConsumeQueue(QueueError),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ConsumeQueueError {
+pub enum QueueError {
     QueueEmpty,
+    PieceCollision,
 }
 
 #[cfg(test)]
@@ -122,7 +125,7 @@ mod tests {
 
             assert_eq!(
                 next_state,
-                Err(ReduceError::ConsumeQueue(ConsumeQueueError::QueueEmpty)),
+                Err(ReduceError::ConsumeQueue(QueueError::QueueEmpty)),
                 "Expected state to be invalid if consuming an empty queue"
             );
         }
@@ -150,7 +153,7 @@ mod tests {
 
             assert_eq!(
                 next_state,
-                Err(ReduceError::GameOver),
+                Err(ReduceError::ConsumeQueue(QueueError::PieceCollision)),
                 "Expected state to be invalid if next active piece intersects the board",
             )
         }
@@ -267,7 +270,7 @@ mod tests {
 
             assert_eq!(
                 next_state,
-                Err(ReduceError::GameOver),
+                Err(ReduceError::ConsumeQueue(QueueError::PieceCollision)),
                 "Expected state to be invalid if next active piece intersects the board",
             )
         }

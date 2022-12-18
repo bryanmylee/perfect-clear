@@ -136,7 +136,7 @@ impl Game {
         let next_piece = Piece::spawn(&hold_kind, config);
 
         if !self.board.can_fit(&next_piece.get_points(config)) {
-            return Err(HoldError::HoldPieceCollision);
+            return Err(HoldError::PieceCollision);
         }
 
         let Some(piece) = self.piece.as_ref() else {
@@ -238,7 +238,7 @@ pub enum HoldError {
     NotAvailable,
     NoHoldPiece,
     NoPiece,
-    HoldPieceCollision,
+    PieceCollision,
 }
 
 #[derive(Debug, PartialEq)]
@@ -620,7 +620,7 @@ mod tests {
 
             assert_eq!(
                 next_game,
-                Err(ReduceError::Hold(HoldError::HoldPieceCollision)),
+                Err(ReduceError::Hold(HoldError::PieceCollision)),
                 "Expected state to be invalid if next active piece intersects the board",
             )
         }
