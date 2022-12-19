@@ -1,6 +1,6 @@
 use crate::config::{Config, RotationSystem};
-use crate::rotation::Orientation;
 use crate::utils::point::ISizePoint;
+use crate::utils::rotation::Orientation;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
 

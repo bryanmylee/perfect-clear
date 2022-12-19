@@ -1,8 +1,8 @@
 use crate::board::Board;
 use crate::config::{srs, Config};
-use crate::direction::Direction;
 use crate::piece::{Piece, PieceKind};
-use crate::rotation::Rotation;
+use crate::utils::direction::Direction;
+use crate::utils::rotation::Rotation;
 use std::convert::TryInto;
 use wasm_bindgen::prelude::*;
 
@@ -287,7 +287,7 @@ mod tests {
     };
 
     mod with_rotation {
-        use crate::rotation::Orientation;
+        use crate::utils::rotation::Orientation;
 
         use super::*;
 

@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-
 use crate::config::{srs, Config, RotationSystem};
 use crate::game::{Action, Game};
 use crate::piece::Piece;
-use crate::rotation::Orientation;
 use crate::state::State;
 use crate::utils::point::ISizePoint;
+use crate::utils::rotation::Orientation;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

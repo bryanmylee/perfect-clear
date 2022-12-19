@@ -1,8 +1,8 @@
-use crate::direction::Direction;
 use crate::game::Move;
 use crate::piece::PieceKind;
-use crate::rotation::{Orientation, Rotation};
+use crate::utils::direction::Direction;
 use crate::utils::point::ISizePoint;
+use crate::utils::rotation::{Orientation, Rotation};
 
 #[derive(Debug, Clone)]
 pub enum RotationSystem {

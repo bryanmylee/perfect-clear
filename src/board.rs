@@ -171,6 +171,8 @@ impl Board {
 #[cfg(test)]
 mod tests {
     use crate::config::{Config, RotationSystem};
+    use crate::piece::{Piece, PieceKind};
+    use crate::utils::rotation::Orientation;
 
     use super::*;
 
@@ -517,9 +519,6 @@ mod tests {
     }
 
     mod can_fit {
-        use crate::piece::{Piece, PieceKind};
-        use crate::rotation::Orientation;
-
         use super::*;
 
         #[test]
@@ -588,8 +587,6 @@ mod tests {
     }
 
     mod can_place {
-        use crate::piece::{Piece, PieceKind};
-
         use super::*;
 
         #[test]
@@ -632,9 +629,6 @@ mod tests {
     }
 
     mod fill_piece_points {
-        use crate::piece::{Piece, PieceKind};
-        use crate::rotation::Orientation;
-
         use super::*;
 
         #[test]
