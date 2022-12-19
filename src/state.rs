@@ -37,6 +37,11 @@ impl State {
                 .reduce(config, action)
                 .map(|game| State {
                     game,
+                    moves_remaining: if *action == GameAction::Place {
+                        self.moves_remaining - 1
+                    } else {
+                        self.moves_remaining
+                    },
                     ..self.clone()
                 })
                 .map_err(|e| ReduceError::Play(e)),
@@ -125,6 +130,8 @@ mod tests {
     };
 
     mod with_consumed_queue {
+        use crate::piece::PIECE_KINDS;
+
         use super::*;
 
         #[test]
@@ -192,15 +199,7 @@ mod tests {
 
         #[test]
         fn consumes_queue_and_sets_piece() {
-            let queue: [Option<PieceKind>; 7] = [
-                Some(PieceKind::I),
-                Some(PieceKind::J),
-                Some(PieceKind::L),
-                Some(PieceKind::O),
-                Some(PieceKind::S),
-                Some(PieceKind::T),
-                Some(PieceKind::Z),
-            ];
+            let queue: [Option<PieceKind>; 7] = PIECE_KINDS.map(|k| Some(k));
 
             let state = State {
                 game: Game {
