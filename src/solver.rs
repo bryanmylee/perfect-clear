@@ -1,7 +1,7 @@
 use crate::config::{srs, Config, RotationSystem};
 use crate::game::{Action as GameAction, Game};
-use crate::piece::Piece;
-use crate::state::{Action, State};
+use crate::piece::{Piece, PIECE_KINDS};
+use crate::state::{Action, QueueError, ReduceError, State};
 use crate::utils::point::ISizePoint;
 use crate::utils::rotation::Orientation;
 use std::collections::HashMap;
@@ -22,6 +22,106 @@ impl Solver {
 
     pub fn update_game(&mut self, game: Game) {
         self.current_state.game = game;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PerfectClearResult {
+    game_path: Vec<State>,
+}
+
+pub fn branch_state_to_perfect_clears(config: &Config, state: &State) -> Vec<PerfectClearResult> {
+    let in_progress = vec![state.clone()];
+    let mut perfect_clear_results = vec![];
+    generate_next_states(config, state, in_progress, &mut perfect_clear_results);
+    perfect_clear_results
+}
+
+fn generate_next_states(
+    config: &Config,
+    state: &State,
+    in_progress: Vec<State>,
+    perfect_clear_results: &mut Vec<PerfectClearResult>,
+) {
+    if state.game.board.can_perfect_clear() {
+        println!("found a perfect clear solution");
+        perfect_clear_results.push(PerfectClearResult {
+            game_path: in_progress,
+        });
+        return;
+    }
+
+    if state.moves_remaining == 0 {
+        println!("no solution after 10 moves");
+        return;
+    }
+
+    branch_state_for_piece(config, state)
+        .iter()
+        .flat_map(|state_with_piece| {
+            branch_game_on_hold(config, &state_with_piece.game)
+                .into_iter()
+                .map(move |game_after_hold| State {
+                    game: game_after_hold,
+                    ..state_with_piece.clone()
+                })
+        })
+        .flat_map(|state_after_hold| {
+            branch_game_to_placable_pieces(config, &state_after_hold.game)
+                .into_iter()
+                .map(move |game_after_move| State {
+                    game: game_after_move,
+                    ..state_after_hold.clone()
+                })
+        })
+        .map(|state_after_move| {
+            state_after_move
+                .reduce(config, &Action::Play(GameAction::Place))
+                .unwrap()
+        })
+        .for_each(|state_after_place| {
+            // Any perfect clear must only fill lines 0 to 3.
+            // Early return here before cloning work so far and state.
+            if !state_after_place.game.board.is_line_empty(4) {
+                return;
+            }
+
+            let mut next_in_progress = in_progress.to_vec();
+            next_in_progress.push(state_after_place.clone());
+            generate_next_states(
+                config,
+                &state_after_place,
+                next_in_progress,
+                perfect_clear_results,
+            )
+        });
+}
+
+const NEXT_PROB: f32 = 1.0 / 7.0;
+
+pub fn branch_state_for_piece(config: &Config, state: &State) -> Vec<State> {
+    if state.game.piece.is_some() {
+        return vec![state.clone()];
+    }
+    match state.reduce(config, &Action::ConsumeQueue) {
+        Ok(s) => vec![s],
+        Err(ReduceError::ConsumeQueue(QueueError::QueueEmpty)) => PIECE_KINDS
+            .iter()
+            .filter_map(|&kind| {
+                state
+                    .reduce(
+                        config,
+                        &Action::GuessNext {
+                            kind,
+                            // Assume all next pieces are equally likely for now.
+                            // TODO Calculate next probabilities.
+                            prob: NEXT_PROB,
+                        },
+                    )
+                    .ok()
+            })
+            .collect(),
+        _ => vec![],
     }
 }
 
@@ -264,6 +364,29 @@ mod tests {
                 position: ISizePoint::new(2, 0),
             };
             assert!(next_pieces.contains(&expected_piece));
+        }
+    }
+
+    mod tests {
+        use super::*;
+
+        #[test]
+        pub fn test() {
+            let state = State {
+                game: Game {
+                    piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
+                    queue: PIECE_KINDS.map(|kind| Some(kind)),
+                    ..Game::initial()
+                },
+                ..State::initial()
+            };
+            let results = branch_state_to_perfect_clears(&CONFIG, &state);
+            for result in results {
+                let Some(last) = result.game_path.last() else {
+                    continue;
+                };
+                println!("{:?}", last);
+            }
         }
     }
 }
