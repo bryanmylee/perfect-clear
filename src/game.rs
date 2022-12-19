@@ -36,7 +36,7 @@ impl Game {
     pub fn reduce(&self, config: &Config, action: &Action) -> Result<Game, ReduceError> {
         match action {
             Action::Move(mov) => self
-                .with_move(config, mov)
+                .with_moved_piece(config, mov)
                 .map_err(|e| ReduceError::Move(e)),
             Action::Hold { switch } => self
                 .with_hold_used(config, *switch)
@@ -47,15 +47,15 @@ impl Game {
         }
     }
 
-    fn with_move(&self, config: &Config, mov: &Move) -> Result<Game, MoveError> {
+    fn with_moved_piece(&self, config: &Config, mov: &Move) -> Result<Game, MoveError> {
         match mov {
-            Move::Rotate(rotation) => self.with_rotation(config, &rotation),
-            Move::Translate(direction) => self.with_translation(config, &direction),
-            Move::Drop => self.with_drop(config),
+            Move::Rotate(rotation) => self.with_rotated_piece(config, &rotation),
+            Move::Translate(direction) => self.with_translated_piece(config, &direction),
+            Move::Drop => self.with_dropped_piece(config),
         }
     }
 
-    fn with_rotation(&self, config: &Config, rotation: &Rotation) -> Result<Game, MoveError> {
+    fn with_rotated_piece(&self, config: &Config, rotation: &Rotation) -> Result<Game, MoveError> {
         let Some(piece) = self.piece.as_ref() else {
             return Err(MoveError::NoPiece);
         };
@@ -94,7 +94,11 @@ impl Game {
         Err(MoveError::InvalidMove)
     }
 
-    fn with_translation(&self, config: &Config, direction: &Direction) -> Result<Game, MoveError> {
+    fn with_translated_piece(
+        &self,
+        config: &Config,
+        direction: &Direction,
+    ) -> Result<Game, MoveError> {
         let Some(piece) = self.piece.as_ref() else {
             return Err(MoveError::NoPiece);
         };
@@ -118,7 +122,7 @@ impl Game {
         })
     }
 
-    fn with_drop(&self, config: &Config) -> Result<Game, MoveError> {
+    fn with_dropped_piece(&self, config: &Config) -> Result<Game, MoveError> {
         let Some(piece) = self.piece.as_ref() else {
             return Err(MoveError::NoPiece);
         };
@@ -315,7 +319,7 @@ mod tests {
 
                 let original_position = game.piece.as_ref().unwrap().position;
 
-                let next_game = game.with_move(&CONFIG, &Move::Rotate(Rotation::Clockwise));
+                let next_game = game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::Clockwise));
 
                 assert!(next_game.is_ok());
                 let next_game = next_game.unwrap();
@@ -357,7 +361,8 @@ mod tests {
                         ..Game::initial()
                     };
 
-                    let next_game = game.with_move(&CONFIG, &Move::Rotate(Rotation::Clockwise));
+                    let next_game =
+                        game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::Clockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -373,7 +378,7 @@ mod tests {
                     );
 
                     let next_game =
-                        next_game.with_move(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
+                        next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
 
                     assert!(next_game.is_ok());
                     let next_state = next_game.unwrap();
@@ -412,7 +417,8 @@ mod tests {
                         ..Game::initial()
                     };
 
-                    let next_game = game.with_move(&CONFIG, &Move::Rotate(Rotation::Clockwise));
+                    let next_game =
+                        game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::Clockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -428,7 +434,7 @@ mod tests {
                     );
 
                     let next_game =
-                        next_game.with_move(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
+                        next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -467,7 +473,8 @@ mod tests {
                         ..Game::initial()
                     };
 
-                    let next_game = game.with_move(&CONFIG, &Move::Rotate(Rotation::Clockwise));
+                    let next_game =
+                        game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::Clockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -483,7 +490,7 @@ mod tests {
                     );
 
                     let next_game =
-                        next_game.with_move(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
+                        next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -522,7 +529,8 @@ mod tests {
                         ..Game::initial()
                     };
 
-                    let next_game = game.with_move(&CONFIG, &Move::Rotate(Rotation::Clockwise));
+                    let next_game =
+                        game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::Clockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -538,7 +546,7 @@ mod tests {
                     );
 
                     let next_game =
-                        next_game.with_move(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
+                        next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
 
                     assert!(next_game.is_ok());
                     let next_game = next_game.unwrap();
@@ -570,7 +578,7 @@ mod tests {
                 ..Game::initial()
             };
 
-            let next_game = game.with_move(&CONFIG, &Move::Translate(Direction::Down));
+            let next_game = game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Down));
 
             assert!(next_game.is_ok());
             let next_game = next_game.unwrap();
@@ -578,7 +586,7 @@ mod tests {
             let piece = next_game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(3, -2));
 
-            let next_game = next_game.with_move(&CONFIG, &Move::Translate(Direction::Left));
+            let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Left));
 
             assert!(next_game.is_ok());
             let next_game = next_game.unwrap();
@@ -586,7 +594,7 @@ mod tests {
             let piece = next_game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(2, -2));
 
-            let next_game = next_game.with_move(&CONFIG, &Move::Translate(Direction::Right));
+            let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Right));
 
             assert!(next_game.is_ok());
             let next_game = next_game.unwrap();
@@ -594,7 +602,7 @@ mod tests {
             let piece = next_game.piece.as_ref().unwrap();
             assert_eq!(piece.position, ISizePoint::new(3, -2));
 
-            let next_game = next_game.with_move(&CONFIG, &Move::Translate(Direction::Down));
+            let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Down));
             assert_eq!(next_game, Err(MoveError::InvalidMove));
         }
     }
