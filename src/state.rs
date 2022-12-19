@@ -106,7 +106,7 @@ pub enum QueueError {
 mod tests {
     use crate::board::Board;
     use crate::config::RotationSystem;
-    use crate::point::ISizePoint;
+    use crate::utils::point::ISizePoint;
 
     use super::*;
 

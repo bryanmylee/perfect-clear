@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Sub};
 use wasm_bindgen::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Point<T> {
     pub x: T,
     pub y: T,

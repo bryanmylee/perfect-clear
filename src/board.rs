@@ -1,4 +1,4 @@
-use crate::point::ISizePoint;
+use crate::utils::point::ISizePoint;
 use std::fmt::{self, Write};
 use wasm_bindgen::prelude::*;
 

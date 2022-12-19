@@ -1,11 +1,8 @@
+use crate::config::{Config, RotationSystem};
+use crate::rotation::Orientation;
+use crate::utils::point::ISizePoint;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
-
-use crate::{
-    config::{Config, RotationSystem},
-    point::ISizePoint,
-    rotation::Orientation,
-};
 
 #[wasm_bindgen]
 #[repr(u8)]

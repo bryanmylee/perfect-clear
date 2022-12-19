@@ -278,7 +278,7 @@ pub enum PlaceError {
 #[cfg(test)]
 mod tests {
     use crate::config::RotationSystem;
-    use crate::point::ISizePoint;
+    use crate::utils::point::ISizePoint;
 
     use super::*;
 

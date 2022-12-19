@@ -9,7 +9,6 @@ mod config;
 mod direction;
 mod game;
 mod piece;
-mod point;
 mod rotation;
 mod solver;
 mod state;

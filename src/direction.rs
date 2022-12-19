@@ -1,4 +1,4 @@
-use crate::point::ISizePoint;
+use crate::utils::point::ISizePoint;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
