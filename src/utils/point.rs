@@ -38,7 +38,7 @@ impl<T: Sub<Output = T>> Sub for Point<T> {
 
 // Structs with generics are not supported by `wasm_bindgen`, therefore use a concrete `Point` type.
 #[wasm_bindgen]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ISizePoint {
     pub x: isize,
     pub y: isize,
