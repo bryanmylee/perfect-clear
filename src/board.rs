@@ -3,7 +3,7 @@ use std::fmt::{self, Write};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Board {
     /// A tetris board has 24 rows of 10 columns. We split the board into 4 segments of 6 rows to
     /// get 60 cells in each segment. This lets us store the fill state of each segment as a
