@@ -51,6 +51,7 @@ impl Game {
         match mov {
             Move::Rotate(rotation) => self.with_rotation(config, &rotation),
             Move::Translate(direction) => self.with_translation(config, &direction),
+            Move::Drop => self.with_drop(config),
         }
     }
 
@@ -247,6 +248,7 @@ pub enum ReduceError {
 pub enum Move {
     Rotate(Rotation),
     Translate(Direction),
+    Drop,
 }
 
 #[derive(Debug, PartialEq)]
@@ -594,6 +596,60 @@ mod tests {
 
             let next_game = next_game.with_move(&CONFIG, &Move::Translate(Direction::Down));
             assert_eq!(next_game, Err(MoveError::InvalidMove));
+        }
+    }
+
+    mod with_drop {
+        use super::*;
+
+        #[test]
+        fn i_piece_on_floor_in_empty_board() {
+            let game = Game {
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Move(Move::Drop));
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+
+            assert_eq!(next_game.piece.unwrap().position.y, -2);
+        }
+
+        #[test]
+        fn o_piece_on_floor_in_empty_board() {
+            let game = Game {
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::O)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Move(Move::Drop));
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+
+            assert_eq!(next_game.piece.unwrap().position.y, -1);
+        }
+
+        #[test]
+        fn i_piece_on_filled_cell() {
+            let game = Game {
+                board: {
+                    let mut b = Board::empty_board();
+                    b.fill(&ISizePoint::new(3, 10));
+                    b
+                },
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Move(Move::Drop));
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+
+            assert_eq!(next_game.piece.unwrap().position.y, 9);
         }
     }
 
