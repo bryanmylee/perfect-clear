@@ -155,7 +155,7 @@ impl Board {
     }
 
     pub fn can_perfect_clear(&self) -> bool {
-        (0..24).all(|y| self.is_line_empty(y) || self.is_line_filled(y))
+        !self.is_empty_board() && (0..24).all(|y| self.is_line_empty(y) || self.is_line_filled(y))
     }
 
     pub fn clear_filled_lines(&mut self) {
