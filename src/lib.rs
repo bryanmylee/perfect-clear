@@ -6,6 +6,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 mod board;
 mod config;
+mod direction;
 mod game;
 mod piece;
 mod point;

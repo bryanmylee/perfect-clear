@@ -1,7 +1,7 @@
 use crate::board::Board;
 use crate::config::{srs, Config};
+use crate::direction::Direction;
 use crate::piece::{Piece, PieceKind};
-use crate::point::ISizePoint;
 use crate::rotation::Rotation;
 use std::convert::TryInto;
 use wasm_bindgen::prelude::*;
@@ -275,26 +275,10 @@ pub enum PlaceError {
     PieceInAir,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Direction {
-    Left,
-    Right,
-    Down,
-}
-
-impl Direction {
-    pub fn get_offset(&self) -> ISizePoint {
-        match self {
-            Direction::Down => ISizePoint::new(0, -1),
-            Direction::Left => ISizePoint::new(-1, 0),
-            Direction::Right => ISizePoint::new(1, 0),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::config::RotationSystem;
+    use crate::point::ISizePoint;
 
     use super::*;
 
@@ -336,6 +320,7 @@ mod tests {
             }
 
             mod north_and_east {
+
                 use super::*;
 
                 #[test]

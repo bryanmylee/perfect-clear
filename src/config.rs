@@ -1,3 +1,9 @@
+use crate::direction::Direction;
+use crate::game::Move;
+use crate::piece::PieceKind;
+use crate::point::ISizePoint;
+use crate::rotation::{Orientation, Rotation};
+
 #[derive(Debug, Clone)]
 pub enum RotationSystem {
     SRS,
@@ -9,7 +15,15 @@ pub struct Config {
 }
 
 pub mod srs {
-    use crate::{piece::PieceKind, point::ISizePoint, rotation::Orientation};
+    use super::*;
+
+    pub const POSSIBLE_MOVES: [Move; 5] = [
+        Move::Rotate(Rotation::Clockwise),
+        Move::Rotate(Rotation::AntiClockwise),
+        Move::Drop,
+        Move::Translate(Direction::Left),
+        Move::Translate(Direction::Right),
+    ];
 
     pub fn kick_table(
         piece_kind: &PieceKind,
