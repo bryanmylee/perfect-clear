@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PieceKind {
     I = 0,
     J = 1,
