@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::game::Game;
+use crate::game::{Action as GameAction, Game, ReduceError as GameError};
 use crate::piece::{Piece, PieceKind};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +32,14 @@ impl State {
             Action::GuessNext { kind, prob } => self
                 .with_guessed_next(config, kind, *prob)
                 .map_err(|e| ReduceError::ConsumeQueue(e)),
+            Action::Play(action) => self
+                .game
+                .reduce(config, action)
+                .map(|game| State {
+                    game,
+                    ..self.clone()
+                })
+                .map_err(|e| ReduceError::Play(e)),
         }
     }
 
@@ -89,11 +97,13 @@ impl State {
 pub enum Action {
     ConsumeQueue,
     GuessNext { kind: PieceKind, prob: f32 },
+    Play(GameAction),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ReduceError {
     ConsumeQueue(QueueError),
+    Play(GameError),
 }
 
 #[derive(Debug, PartialEq)]
