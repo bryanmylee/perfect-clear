@@ -16,7 +16,7 @@ pub struct Board {
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for y in (0..24).map(|y| 23 - y) {
+        for y in (19..24).map(|y| 23 - y) {
             f.write_str(&format!("\n{:0>2} ", y))?;
             for x in 0..10 {
                 f.write_char(if self.is_filled(&ISizePoint::new(x, y)) {
