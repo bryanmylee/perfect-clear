@@ -195,6 +195,7 @@ impl Game {
         Ok(Game {
             board: next_board,
             piece: None,
+            is_hold_used: false,
             ..next_game
         })
     }
@@ -795,6 +796,26 @@ mod tests {
             assert_eq!(
                 next_game.board, expected_board,
                 "Previous active piece should fill the board after placement"
+            );
+        }
+
+        #[test]
+        fn resets_is_hold_used() {
+            let game = Game {
+                piece: Some(Piece {
+                    position: ISizePoint::new(3, -2),
+                    ..Piece::spawn(&CONFIG, &PieceKind::I)
+                }),
+                ..Game::initial()
+            };
+
+            let next_game = game.reduce(&CONFIG, &Action::Place);
+
+            assert!(next_game.is_ok());
+            let next_game = next_game.unwrap();
+            assert!(
+                !next_game.is_hold_used,
+                "Hold should be reset after placing piece"
             );
         }
     }
