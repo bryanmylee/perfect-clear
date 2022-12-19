@@ -6,8 +6,8 @@ use crate::piece::{Piece, PieceKind};
 pub struct State {
     pub game: Game,
 
-    /// Only 2-bags needed at most to determine next piece probability.
-    pub seen: [Option<PieceKind>; 14],
+    /// A fixed-size arrayset indexed by `PieceKind as u8`.
+    pub seen_piece_kind_in_bag: [bool; 7],
 
     pub moves_remaining: isize,
 
@@ -18,7 +18,7 @@ impl State {
     pub fn initial() -> State {
         State {
             game: Game::initial(),
-            seen: [None; 14],
+            seen_piece_kind_in_bag: [false; 7],
             moves_remaining: 10,
             current_prob: 1.0,
         }
