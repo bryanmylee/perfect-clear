@@ -1,7 +1,7 @@
 use crate::config::{srs, Config, RotationSystem};
-use crate::game::{Action, Game};
+use crate::game::{Action as GameAction, Game};
 use crate::piece::Piece;
-use crate::state::State;
+use crate::state::{Action, State};
 use crate::utils::point::ISizePoint;
 use crate::utils::rotation::Orientation;
 use std::collections::HashMap;
@@ -25,10 +25,10 @@ impl Solver {
     }
 }
 
-pub fn branch_game_on_hold(game: &Game, config: &Config) -> Vec<Game> {
+pub fn branch_game_on_hold(config: &Config, game: &Game) -> Vec<Game> {
     [true, false]
         .iter()
-        .filter_map(|&switch| game.reduce(config, &Action::Hold { switch }).ok())
+        .filter_map(|&switch| game.reduce(config, &GameAction::Hold { switch }).ok())
         .collect()
 }
 
@@ -39,14 +39,14 @@ struct PlaceablePiecesValue {
     previous_key: Option<PlaceablePiecesKey>,
 }
 
-pub fn branch_game_to_placable_pieces(game: &Game, config: &Config) -> Vec<Game> {
+pub fn branch_game_to_placable_pieces(config: &Config, game: &Game) -> Vec<Game> {
     let Some(piece) = game.piece else {
             return vec![];
         };
 
     let mut memo = HashMap::new();
 
-    memoize_game_to_placable_pieces(game, config, &mut memo);
+    generate_placable_pieces(config, game, &mut memo);
 
     memo.into_iter()
         .filter_map(|(k, v)| if v.is_placable { Some(k) } else { None })
@@ -64,9 +64,9 @@ pub fn branch_game_to_placable_pieces(game: &Game, config: &Config) -> Vec<Game>
 /// For a given board and piece kind, each piece position and rotation should be memoized.
 ///
 /// `self.piece` must be `Some` variant.
-fn memoize_game_to_placable_pieces(
-    game: &Game,
+fn generate_placable_pieces(
     config: &Config,
+    game: &Game,
     memo: &mut HashMap<PlaceablePiecesKey, PlaceablePiecesValue>,
 ) {
     let piece = game.piece.unwrap();
@@ -74,7 +74,7 @@ fn memoize_game_to_placable_pieces(
     match config.rotation_system {
         RotationSystem::SRS => srs::POSSIBLE_MOVES
             .iter()
-            .filter_map(|&mov| game.reduce(config, &Action::Move(mov)).ok())
+            .filter_map(|&mov| game.reduce(config, &GameAction::Move(mov)).ok())
             .for_each(|next_game| {
                 let next_piece = next_game.piece.unwrap();
                 let key = (next_piece.position, next_piece.orientation);
@@ -87,7 +87,7 @@ fn memoize_game_to_placable_pieces(
                             is_placable: next_game.board.can_place(&next_piece.get_points(config)),
                             previous_key: Some((piece.position, piece.orientation)),
                         });
-                    memoize_game_to_placable_pieces(&next_game, config, memo);
+                    generate_placable_pieces(config, &next_game, memo);
                 }
             }),
     }
@@ -115,7 +115,7 @@ mod tests {
                 ..Game::initial()
             };
 
-            let next_games = branch_game_to_placable_pieces(&game, &CONFIG);
+            let next_games = branch_game_to_placable_pieces(&CONFIG, &game);
             let next_pieces = next_games
                 .into_iter()
                 .filter_map(|game| game.piece)
@@ -189,7 +189,7 @@ mod tests {
                 ..Game::initial()
             };
 
-            let next_games = branch_game_to_placable_pieces(&game, &CONFIG);
+            let next_games = branch_game_to_placable_pieces(&CONFIG, &game);
             let next_pieces = next_games
                 .into_iter()
                 .filter_map(|game| game.piece)
