@@ -598,7 +598,7 @@ mod tests {
 
             let piece = Piece {
                 position: ISizePoint::new(3, -2),
-                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                ..Piece::spawn(&CONFIG, &PieceKind::I)
             };
 
             assert!(board.can_place(&piece.get_points(&CONFIG)));
@@ -610,7 +610,7 @@ mod tests {
 
             let piece = Piece {
                 position: ISizePoint::new(3, -1),
-                ..Piece::spawn(&PieceKind::I, &CONFIG)
+                ..Piece::spawn(&CONFIG, &PieceKind::I)
             };
 
             assert!(!board.can_place(&piece.get_points(&CONFIG)));
@@ -624,7 +624,7 @@ mod tests {
 
             let piece = Piece {
                 position: ISizePoint::new(0, 1),
-                ..Piece::spawn(&PieceKind::J, &CONFIG)
+                ..Piece::spawn(&CONFIG, &PieceKind::J)
             };
 
             assert!(board.can_place(&piece.get_points(&CONFIG)));

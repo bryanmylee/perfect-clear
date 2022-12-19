@@ -131,7 +131,7 @@ pub struct Piece {
 }
 
 impl Piece {
-    pub fn spawn(kind: &PieceKind, config: &Config) -> Piece {
+    pub fn spawn(config: &Config, kind: &PieceKind) -> Piece {
         Piece {
             kind: kind.clone(),
             position: kind.get_spawn_point(config),

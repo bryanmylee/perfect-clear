@@ -40,7 +40,7 @@ impl State {
             return Err(QueueError::QueueEmpty);
         };
 
-        let next_piece = Piece::spawn(next_piece_kind, config);
+        let next_piece = Piece::spawn(config, next_piece_kind);
 
         if !self.game.board.can_fit(&next_piece.get_points(config)) {
             return Err(QueueError::PieceCollision);
@@ -67,7 +67,7 @@ impl State {
         kind: &PieceKind,
         prob: f32,
     ) -> Result<State, QueueError> {
-        let next_piece = Piece::spawn(kind, config);
+        let next_piece = Piece::spawn(config, kind);
 
         if !self.game.board.can_fit(&next_piece.get_points(config)) {
             return Err(QueueError::PieceCollision);

@@ -47,7 +47,7 @@ impl Game {
         }
     }
 
-    pub fn with_move(&self, config: &Config, mov: &Move) -> Result<Game, MoveError> {
+    fn with_move(&self, config: &Config, mov: &Move) -> Result<Game, MoveError> {
         match mov {
             Move::Rotate(rotation) => self.with_rotation(config, &rotation),
             Move::Translate(direction) => self.with_translation(config, &direction),
@@ -117,6 +117,28 @@ impl Game {
         })
     }
 
+    fn with_drop(&self, config: &Config) -> Result<Game, MoveError> {
+        let Some(piece) = self.piece.as_ref() else {
+            return Err(MoveError::NoPiece);
+        };
+
+        let mut dropped_piece = piece.clone();
+
+        while self.board.can_fit(&dropped_piece.get_points(config)) {
+            dropped_piece.position.y -= 1;
+        }
+        dropped_piece.position.y += 1;
+
+        if dropped_piece.position.y == piece.position.y {
+            return Err(MoveError::InvalidMove);
+        }
+
+        Ok(Game {
+            piece: Some(dropped_piece),
+            ..self.clone()
+        })
+    }
+
     fn with_hold_used(&self, config: &Config, switch: bool) -> Result<Game, HoldError> {
         if self.is_hold_used {
             return Err(HoldError::NotAvailable);
@@ -133,7 +155,7 @@ impl Game {
             return Err(HoldError::NoHoldPiece);
         };
 
-        let next_piece = Piece::spawn(&hold_kind, config);
+        let next_piece = Piece::spawn(config, &hold_kind);
 
         if !self.board.can_fit(&next_piece.get_points(config)) {
             return Err(HoldError::PieceCollision);
@@ -285,7 +307,7 @@ mod tests {
             #[test]
             fn no_kick() {
                 let game = Game {
-                    piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                    piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
                     ..Game::initial()
                 };
 
@@ -328,7 +350,7 @@ mod tests {
                         board,
                         piece: Some(Piece {
                             position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
                     };
@@ -383,7 +405,7 @@ mod tests {
                         board,
                         piece: Some(Piece {
                             position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
                     };
@@ -438,7 +460,7 @@ mod tests {
                         board,
                         piece: Some(Piece {
                             position: ISizePoint::new(3, 1),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
                     };
@@ -493,7 +515,7 @@ mod tests {
                         board,
                         piece: Some(Piece {
                             position: ISizePoint::new(3, 0),
-                            ..Piece::spawn(&PieceKind::I, &CONFIG)
+                            ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
                     };
@@ -541,7 +563,7 @@ mod tests {
             let game = Game {
                 piece: Some(Piece {
                     position: ISizePoint::new(3, -1),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
             };
@@ -593,7 +615,7 @@ mod tests {
         #[test]
         fn invalid_if_no_hold_piece() {
             let game = Game {
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
                 ..Game::initial()
             };
 
@@ -612,7 +634,7 @@ mod tests {
             let game = Game {
                 board,
                 hold_kind: Some(PieceKind::I),
-                piece: Some(Piece::spawn(&PieceKind::J, &CONFIG)),
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::J)),
                 ..Game::initial()
             };
 
@@ -629,7 +651,7 @@ mod tests {
         fn consumes_hold_and_swaps_hold() {
             let game = Game {
                 hold_kind: Some(PieceKind::J),
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
                 ..Game::initial()
             };
 
@@ -647,7 +669,7 @@ mod tests {
         fn consumes_hold_without_swapping_hold() {
             let game = Game {
                 hold_kind: Some(PieceKind::J),
-                piece: Some(Piece::spawn(&PieceKind::I, &CONFIG)),
+                piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
                 ..Game::initial()
             };
 
@@ -683,7 +705,7 @@ mod tests {
             let game = Game {
                 piece: Some(Piece {
                     position: ISizePoint::new(3, -1),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
             };
@@ -702,7 +724,7 @@ mod tests {
             let game = Game {
                 piece: Some(Piece {
                     position: ISizePoint::new(3, -2),
-                    ..Piece::spawn(&PieceKind::I, &CONFIG)
+                    ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
             };
