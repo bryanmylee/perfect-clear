@@ -17,6 +17,16 @@ pub enum PieceKind {
     Z = 6,
 }
 
+pub const PIECE_KINDS: [PieceKind; 7] = [
+    PieceKind::I,
+    PieceKind::J,
+    PieceKind::L,
+    PieceKind::O,
+    PieceKind::S,
+    PieceKind::T,
+    PieceKind::Z,
+];
+
 impl TryFrom<u8> for PieceKind {
     type Error = ();
 
