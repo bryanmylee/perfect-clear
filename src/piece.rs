@@ -1,4 +1,4 @@
-use crate::config::{Config, RotationSystem};
+use crate::config::{Config, Kick};
 use crate::utils::point::Point;
 use crate::utils::rotation::Orientation;
 use std::convert::TryFrom;
@@ -46,8 +46,8 @@ impl TryFrom<u8> for PieceKind {
 
 impl PieceKind {
     pub fn get_spawn_point(&self, config: &Config) -> Point {
-        match config.rotation_system {
-            RotationSystem::SRS => match self {
+        match config.kick {
+            Kick::SRS => match self {
                 PieceKind::I => Point::new(3, 0),
                 PieceKind::J => Point::new(3, 1),
                 PieceKind::L => Point::new(3, 1),
@@ -191,11 +191,8 @@ fn orient_offset_box(unoriented_offset_box: &mut PieceOffsetBox, orientation: &O
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::RotationSystem;
 
-    const CONFIG: Config = Config {
-        rotation_system: RotationSystem::SRS,
-    };
+    const CONFIG: Config = Config::default();
 
     mod get_points {
         use super::*;

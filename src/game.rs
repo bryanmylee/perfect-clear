@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::config::{srs, Config};
+use crate::config::Config;
 use crate::piece::{Piece, PieceKind};
 use crate::utils::direction::Direction;
 use crate::utils::rotation::Rotation;
@@ -76,7 +76,7 @@ impl Game {
             });
         }
 
-        let Some(kicks) = srs::kick_table(&piece.kind, &from_orientation, &to_orientation) else {
+        let Some(kicks) = config.kick_table(&piece.kind, &from_orientation, &to_orientation) else {
             return Err(MoveError::InvalidMove);
         };
 
@@ -278,14 +278,11 @@ pub enum PlaceError {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::RotationSystem;
     use crate::utils::point::Point;
 
     use super::*;
 
-    const CONFIG: Config = Config {
-        rotation_system: RotationSystem::SRS,
-    };
+    const CONFIG: Config = Config::default();
 
     mod with_rotation {
         use crate::utils::rotation::Orientation;

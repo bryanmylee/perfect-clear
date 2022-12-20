@@ -120,14 +120,11 @@ pub enum QueueError {
 #[cfg(test)]
 mod tests {
     use crate::board::Board;
-    use crate::config::RotationSystem;
     use crate::utils::point::Point;
 
     use super::*;
 
-    const CONFIG: Config = Config {
-        rotation_system: RotationSystem::SRS,
-    };
+    const CONFIG: Config = Config::default();
 
     mod with_consumed_queue {
         use crate::piece::PIECE_KINDS;

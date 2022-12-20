@@ -142,15 +142,13 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{Config, RotationSystem};
+    use crate::config::Config;
     use crate::piece::{Piece, PieceKind};
     use crate::utils::rotation::Orientation;
 
     use super::*;
 
-    const CONFIG: Config = Config {
-        rotation_system: RotationSystem::SRS,
-    };
+    const CONFIG: Config = Config::default();
 
     fn assert_only_filled(board: &Board, fills: Vec<Point>) {
         for x in 0..10 {

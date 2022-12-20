@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::config::{srs, Config, RotationSystem};
+use crate::config::Config;
 use crate::game::{Action as GameAction, Game};
 use crate::piece::{Piece, PieceKind, PIECE_KINDS};
 use crate::state::{Action, QueueError, ReduceError, State};
@@ -213,26 +213,25 @@ fn generate_placable_pieces(
 ) {
     let piece = game.piece.unwrap();
 
-    match config.rotation_system {
-        RotationSystem::SRS => srs::POSSIBLE_MOVES
-            .iter()
-            .filter_map(|&mov| game.reduce(config, &GameAction::Move(mov)).ok())
-            .for_each(|next_game| {
-                let next_piece = next_game.piece.unwrap();
-                let key = (next_piece.position, next_piece.orientation);
-                if memo.contains_key(&key) {
-                    // TODO relax path
-                } else {
-                    // set memo and continue branching
-                    memo.entry((next_piece.position, next_piece.orientation))
-                        .or_insert(PlaceablePiecesValue {
-                            is_placable: next_game.board.can_place(&next_piece.get_points(config)),
-                            previous_key: Some((piece.position, piece.orientation)),
-                        });
-                    generate_placable_pieces(config, &next_game, memo);
-                }
-            }),
-    }
+    config
+        .possible_moves()
+        .iter()
+        .filter_map(|&mov| game.reduce(config, &GameAction::Move(mov)).ok())
+        .for_each(|next_game| {
+            let next_piece = next_game.piece.unwrap();
+            let key = (next_piece.position, next_piece.orientation);
+            if memo.contains_key(&key) {
+                // TODO relax path
+            } else {
+                // set memo and continue branching
+                memo.entry((next_piece.position, next_piece.orientation))
+                    .or_insert(PlaceablePiecesValue {
+                        is_placable: next_game.board.can_place(&next_piece.get_points(config)),
+                        previous_key: Some((piece.position, piece.orientation)),
+                    });
+                generate_placable_pieces(config, &next_game, memo);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -241,13 +240,9 @@ mod tests {
 
     use super::*;
 
-    const CONFIG: Config = Config {
-        rotation_system: RotationSystem::SRS,
-    };
+    const CONFIG: Config = Config::default();
 
     mod branch_game_to_placable_pieces {
-        use crate::board::Board;
-
         use super::*;
 
         #[test]
