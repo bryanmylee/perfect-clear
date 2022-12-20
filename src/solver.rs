@@ -367,26 +367,26 @@ mod tests {
         }
     }
 
-    mod tests {
-        use super::*;
+    // mod tests {
+    //     use super::*;
 
-        #[test]
-        pub fn test() {
-            let state = State {
-                game: Game {
-                    piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
-                    queue: PIECE_KINDS.map(|kind| Some(kind)),
-                    ..Game::initial()
-                },
-                ..State::initial()
-            };
-            let results = branch_state_to_perfect_clears(&CONFIG, &state);
-            for result in results {
-                let Some(last) = result.game_path.last() else {
-                    continue;
-                };
-                println!("{:?}", last);
-            }
-        }
-    }
+    //     #[test]
+    //     pub fn test() {
+    //         let state = State {
+    //             game: Game {
+    //                 piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
+    //                 queue: PIECE_KINDS.map(|kind| Some(kind)),
+    //                 ..Game::initial()
+    //             },
+    //             ..State::initial()
+    //         };
+    //         let results = branch_state_to_perfect_clears(&CONFIG, &state);
+    //         for result in results {
+    //             let Some(last) = result.game_path.last() else {
+    //                 continue;
+    //             };
+    //             println!("{:?}", last);
+    //         }
+    //     }
+    // }
 }
