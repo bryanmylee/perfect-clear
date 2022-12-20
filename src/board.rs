@@ -22,9 +22,9 @@ impl fmt::Debug for Board {
             f.write_str(&format!("\n{:0>2} ", y))?;
             for x in 0..10 {
                 f.write_char(if self.is_filled(&Point::new(x, y)) {
-                    'x'
+                    '■'
                 } else {
-                    '-'
+                    '□'
                 })?;
             }
         }
