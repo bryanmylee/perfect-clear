@@ -100,14 +100,57 @@ For simplicity, we'll start with SRS as the base implementation.
 
 Pieces can either be in a 4x4 or 3x3 bounding box. Rotations are then based on symmetrically rotating the bounding box with its contents. This solves all issues with "half"-point piece centers.
 
-## Performance
-
-Memoization is critical for search problems where multiple action paths may lead to the same state.
-
-This is critical in both the overall solver algorithm and within the active stage.
-
-### Active stage memoization
+## Active stage memoization
 
 For each active state, given a board and a piece kind, we need to track whether the position and orientation has been visited before. To allow backtracking, we can store the previous state for any given state and trace back through the table if necessary.
 
 Since the board and piece kind is constant during a given active stage, the only key required for memoization is the position and orientation of the piece.
+
+## Solver strategy
+
+Currently, the solver explores the entire problem space given the constraints and keeps track of the progress so far as `in_progress` to allow for tracing of the actions taken. However, this approach is running into performance issues. Memoization is also difficult because each state is sufficiently complex that a simple memoization strategy is not effective.
+
+### Solver benchmarks
+
+Testing with uniform distribution of piece probabilities.
+
+| Strategy                                                           | Time to first result |
+| ------------------------------------------------------------------ | -------------------: |
+| `Vec<State>` to store in progress paths                            |      60.62s, 389.78s |
+| `[Option<State>; 10]` to store in progress paths with `Copy` trait |     325.33s (failed) |
+
+It takes roughly 5 minutes to calculate a single perfect clear result which may not even be applicable to the game situation.
+
+### Memoizing probabilities
+
+The optimal position and orientation to place a piece depends on what's available in the queue and what will appear based on the seen pieces in the bag, which can be summarized with the probability of seeing next pieces.
+
+Given a board, an active piece, and a probability distribution for the next piece, we want to find the next board that will provide the highest probability of achieving a perfect clear. A board with 2 or 4 fully filled lines will have 100% probability, and each board before will have decreasing probabilities based on the probability of seeing that piece.
+
+Ultimately, this approach does not seem to be possible as the input domain is far too large when accounting for all probabilities and queues.
+
+### Graph-first approach
+
+Instead of memoizing probabilities, we should save board fills as nodes in a directional graph with piece kinds as edges between nodes. The graph can be lazily built by exploring the piece kinds in the queue or probabilistically.
+
+- For implementation, we can store a forward reference table as `HashMap<(Board, PieceKind), HashSet<Board>>`.
+- Note that the memoization table only tracks the graph of board fills against piece kind edges without any probabilities.
+
+However, there isn't much use for that memoization table
+
+### Two-pass approach
+
+We first fill in a backtracking table with transition probabilities on a forward pass, then traverse backwards from the perfect clear board to the start.
+
+Given a probability of each piece kind, applying the piece kind to a blank board will produce a list of possible boards with a transition probability attached i.e. `Vec<(Board, f32)>`. At each expansion step, we repeat the process for each existing board and flatten the results.
+
+Each expansion step is stored in a backtracking table where for a given board and piece, we store the previous board with the highest probability i.e. `HashMap<(Board, PieceKind), (Board, f32)>`.
+
+- The transition probability backwards is equal to the transition probability forwards.
+- This method is mathematically flawed, as a board with high transition probability early on could greedily lead the backwards pass through a suboptimal path.
+- The expansion step will also require an exhaustive search which defeats the purpose.
+
+It may be beneficial to filter out boards below a threshold probability or the top probable boards. However
+
+- It may be unfeasible to filter for only the top probable boards as there would be no deterministic way to resolve ties.
+- Filtering for a threshold may be difficult as the probabilities will shrink exponentially at each expansion stage.
