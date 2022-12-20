@@ -191,7 +191,12 @@ impl Game {
 
         let next_game = self.clone();
         let mut next_board = next_game.board;
+
         next_board.fill_piece_points(&piece_points);
+        if !next_board.can_perfect_clear() {
+            next_board.clear_filled_lines();
+        }
+
         Ok(Game {
             board: next_board,
             piece: None,
