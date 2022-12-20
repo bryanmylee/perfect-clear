@@ -279,7 +279,7 @@ pub enum PlaceError {
 #[cfg(test)]
 mod tests {
     use crate::config::RotationSystem;
-    use crate::utils::point::ISizePoint;
+    use crate::utils::point::Point;
 
     use super::*;
 
@@ -328,20 +328,20 @@ mod tests {
                 fn kick_one() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
+                    board.empty(&Point::new(3, 2));
+                    board.empty(&Point::new(4, 2));
+                    board.empty(&Point::new(5, 2));
+                    board.empty(&Point::new(6, 2));
 
-                    board.empty(&ISizePoint::new(3, 0));
-                    board.empty(&ISizePoint::new(3, 1));
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(3, 3));
+                    board.empty(&Point::new(3, 0));
+                    board.empty(&Point::new(3, 1));
+                    board.empty(&Point::new(3, 2));
+                    board.empty(&Point::new(3, 3));
 
                     let game = Game {
                         board,
                         piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
+                            position: Point::new(3, 0),
                             ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
@@ -358,10 +358,7 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(1, 0),
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(1, 0),);
 
                     let next_game =
                         next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
@@ -376,7 +373,7 @@ mod tests {
                     );
                     assert_eq!(
                         next_state.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
+                        Point::new(3, 0)
                     );
                 }
 
@@ -384,20 +381,20 @@ mod tests {
                 fn kick_two() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
+                    board.empty(&Point::new(3, 2));
+                    board.empty(&Point::new(4, 2));
+                    board.empty(&Point::new(5, 2));
+                    board.empty(&Point::new(6, 2));
 
-                    board.empty(&ISizePoint::new(6, 0));
-                    board.empty(&ISizePoint::new(6, 1));
-                    board.empty(&ISizePoint::new(6, 2));
-                    board.empty(&ISizePoint::new(6, 3));
+                    board.empty(&Point::new(6, 0));
+                    board.empty(&Point::new(6, 1));
+                    board.empty(&Point::new(6, 2));
+                    board.empty(&Point::new(6, 3));
 
                     let game = Game {
                         board,
                         piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
+                            position: Point::new(3, 0),
                             ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
@@ -414,10 +411,7 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(4, 0),
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(4, 0),);
 
                     let next_game =
                         next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
@@ -430,30 +424,27 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(3, 0));
                 }
 
                 #[test]
                 fn kick_three() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&ISizePoint::new(3, 3));
-                    board.empty(&ISizePoint::new(4, 3));
-                    board.empty(&ISizePoint::new(5, 3));
-                    board.empty(&ISizePoint::new(6, 3));
+                    board.empty(&Point::new(3, 3));
+                    board.empty(&Point::new(4, 3));
+                    board.empty(&Point::new(5, 3));
+                    board.empty(&Point::new(6, 3));
 
-                    board.empty(&ISizePoint::new(3, 0));
-                    board.empty(&ISizePoint::new(3, 1));
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(3, 3));
+                    board.empty(&Point::new(3, 0));
+                    board.empty(&Point::new(3, 1));
+                    board.empty(&Point::new(3, 2));
+                    board.empty(&Point::new(3, 3));
 
                     let game = Game {
                         board,
                         piece: Some(Piece {
-                            position: ISizePoint::new(3, 1),
+                            position: Point::new(3, 1),
                             ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
@@ -470,10 +461,7 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(1, 0),
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(1, 0),);
 
                     let next_game =
                         next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
@@ -486,30 +474,27 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 1)
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(3, 1));
                 }
 
                 #[test]
                 fn kick_four() {
                     let mut board = Board::filled_board();
 
-                    board.empty(&ISizePoint::new(3, 2));
-                    board.empty(&ISizePoint::new(4, 2));
-                    board.empty(&ISizePoint::new(5, 2));
-                    board.empty(&ISizePoint::new(6, 2));
+                    board.empty(&Point::new(3, 2));
+                    board.empty(&Point::new(4, 2));
+                    board.empty(&Point::new(5, 2));
+                    board.empty(&Point::new(6, 2));
 
-                    board.empty(&ISizePoint::new(6, 2));
-                    board.empty(&ISizePoint::new(6, 3));
-                    board.empty(&ISizePoint::new(6, 4));
-                    board.empty(&ISizePoint::new(6, 5));
+                    board.empty(&Point::new(6, 2));
+                    board.empty(&Point::new(6, 3));
+                    board.empty(&Point::new(6, 4));
+                    board.empty(&Point::new(6, 5));
 
                     let game = Game {
                         board,
                         piece: Some(Piece {
-                            position: ISizePoint::new(3, 0),
+                            position: Point::new(3, 0),
                             ..Piece::spawn(&CONFIG, &PieceKind::I)
                         }),
                         ..Game::initial()
@@ -526,10 +511,7 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::East
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(4, 2),
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(4, 2),);
 
                     let next_game =
                         next_game.with_moved_piece(&CONFIG, &Move::Rotate(Rotation::AntiClockwise));
@@ -542,10 +524,7 @@ mod tests {
                         next_game.piece.as_ref().unwrap().orientation,
                         Orientation::North
                     );
-                    assert_eq!(
-                        next_game.piece.as_ref().unwrap().position,
-                        ISizePoint::new(3, 0)
-                    );
+                    assert_eq!(next_game.piece.as_ref().unwrap().position, Point::new(3, 0));
                 }
             }
         }
@@ -558,7 +537,7 @@ mod tests {
         fn moves_piece() {
             let game = Game {
                 piece: Some(Piece {
-                    position: ISizePoint::new(3, -1),
+                    position: Point::new(3, -1),
                     ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
@@ -570,7 +549,7 @@ mod tests {
             let next_game = next_game.unwrap();
 
             let piece = next_game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(3, -2));
+            assert_eq!(piece.position, Point::new(3, -2));
 
             let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Left));
 
@@ -578,7 +557,7 @@ mod tests {
             let next_game = next_game.unwrap();
 
             let piece = next_game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(2, -2));
+            assert_eq!(piece.position, Point::new(2, -2));
 
             let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Right));
 
@@ -586,7 +565,7 @@ mod tests {
             let next_game = next_game.unwrap();
 
             let piece = next_game.piece.as_ref().unwrap();
-            assert_eq!(piece.position, ISizePoint::new(3, -2));
+            assert_eq!(piece.position, Point::new(3, -2));
 
             let next_game = next_game.with_moved_piece(&CONFIG, &Move::Translate(Direction::Down));
             assert_eq!(next_game, Err(MoveError::InvalidMove));
@@ -631,7 +610,7 @@ mod tests {
             let game = Game {
                 board: {
                     let mut b = Board::empty_board();
-                    b.fill(&ISizePoint::new(3, 10));
+                    b.fill(&Point::new(3, 10));
                     b
                 },
                 piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
@@ -678,7 +657,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&ISizePoint::new(x, 20));
+                board.fill(&Point::new(x, 20));
             }
 
             let game = Game {
@@ -754,7 +733,7 @@ mod tests {
         fn invalid_if_piece_in_air() {
             let game = Game {
                 piece: Some(Piece {
-                    position: ISizePoint::new(3, -1),
+                    position: Point::new(3, -1),
                     ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
@@ -773,7 +752,7 @@ mod tests {
         fn piece_placed() {
             let game = Game {
                 piece: Some(Piece {
-                    position: ISizePoint::new(3, -2),
+                    position: Point::new(3, -2),
                     ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()
@@ -789,10 +768,10 @@ mod tests {
             );
 
             let mut expected_board = Board::empty_board();
-            expected_board.fill(&ISizePoint::new(3, 0));
-            expected_board.fill(&ISizePoint::new(4, 0));
-            expected_board.fill(&ISizePoint::new(5, 0));
-            expected_board.fill(&ISizePoint::new(6, 0));
+            expected_board.fill(&Point::new(3, 0));
+            expected_board.fill(&Point::new(4, 0));
+            expected_board.fill(&Point::new(5, 0));
+            expected_board.fill(&Point::new(6, 0));
             assert_eq!(
                 next_game.board, expected_board,
                 "Previous active piece should fill the board after placement"
@@ -803,7 +782,7 @@ mod tests {
         fn resets_is_hold_used() {
             let game = Game {
                 piece: Some(Piece {
-                    position: ISizePoint::new(3, -2),
+                    position: Point::new(3, -2),
                     ..Piece::spawn(&CONFIG, &PieceKind::I)
                 }),
                 ..Game::initial()

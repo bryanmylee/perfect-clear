@@ -2,7 +2,7 @@ use crate::config::{srs, Config, RotationSystem};
 use crate::game::{Action as GameAction, Game};
 use crate::piece::{Piece, PIECE_KINDS};
 use crate::state::{Action, QueueError, ReduceError, State};
-use crate::utils::point::ISizePoint;
+use crate::utils::point::Point;
 use crate::utils::rotation::Orientation;
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -132,7 +132,7 @@ pub fn branch_game_on_hold(config: &Config, game: &Game) -> Vec<Game> {
         .collect()
 }
 
-type PlaceablePiecesKey = (ISizePoint, Orientation);
+type PlaceablePiecesKey = (Point, Orientation);
 
 struct PlaceablePiecesValue {
     is_placable: bool,
@@ -230,7 +230,7 @@ mod tests {
                 let expected_piece = Piece {
                     kind: PieceKind::I,
                     orientation: Orientation::North,
-                    position: ISizePoint::new(horizontal_x, -2),
+                    position: Point::new(horizontal_x, -2),
                 };
                 assert!(next_pieces.contains(&expected_piece));
 
@@ -238,7 +238,7 @@ mod tests {
                 let expected_piece = Piece {
                     kind: PieceKind::I,
                     orientation: Orientation::South,
-                    position: ISizePoint::new(horizontal_x, -1),
+                    position: Point::new(horizontal_x, -1),
                 };
                 assert!(next_pieces.contains(&expected_piece));
             }
@@ -248,7 +248,7 @@ mod tests {
                 let expected_piece = Piece {
                     kind: PieceKind::I,
                     orientation: Orientation::East,
-                    position: ISizePoint::new(vertical_x - 2, 0),
+                    position: Point::new(vertical_x - 2, 0),
                 };
                 assert!(next_pieces.contains(&expected_piece));
 
@@ -256,7 +256,7 @@ mod tests {
                 let expected_piece = Piece {
                     kind: PieceKind::I,
                     orientation: Orientation::West,
-                    position: ISizePoint::new(vertical_x - 1, 0),
+                    position: Point::new(vertical_x - 1, 0),
                 };
                 assert!(next_pieces.contains(&expected_piece));
             }
@@ -268,18 +268,18 @@ mod tests {
                 let mut b = Board::filled_board();
                 for x in 3..=5 {
                     for y in 5..24 {
-                        b.empty(&ISizePoint::new(x, y));
+                        b.empty(&Point::new(x, y));
                     }
                 }
-                b.empty(&ISizePoint::new(3, 0));
-                b.empty(&ISizePoint::new(3, 1));
-                b.empty(&ISizePoint::new(4, 1));
-                b.empty(&ISizePoint::new(3, 2));
-                b.empty(&ISizePoint::new(3, 3));
-                b.empty(&ISizePoint::new(4, 3));
-                b.empty(&ISizePoint::new(5, 3));
-                b.empty(&ISizePoint::new(4, 4));
-                b.empty(&ISizePoint::new(5, 4));
+                b.empty(&Point::new(3, 0));
+                b.empty(&Point::new(3, 1));
+                b.empty(&Point::new(4, 1));
+                b.empty(&Point::new(3, 2));
+                b.empty(&Point::new(3, 3));
+                b.empty(&Point::new(4, 3));
+                b.empty(&Point::new(5, 3));
+                b.empty(&Point::new(4, 4));
+                b.empty(&Point::new(5, 4));
                 b
             };
 
@@ -305,7 +305,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::North,
-                position: ISizePoint::new(3, 4),
+                position: Point::new(3, 4),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -313,7 +313,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::South,
-                position: ISizePoint::new(3, 4),
+                position: Point::new(3, 4),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -321,7 +321,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::East,
-                position: ISizePoint::new(2, 5),
+                position: Point::new(2, 5),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -329,7 +329,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::West,
-                position: ISizePoint::new(3, 4),
+                position: Point::new(3, 4),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -337,7 +337,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::East,
-                position: ISizePoint::new(3, 3),
+                position: Point::new(3, 3),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -345,7 +345,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::West,
-                position: ISizePoint::new(4, 3),
+                position: Point::new(4, 3),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -353,7 +353,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::North,
-                position: ISizePoint::new(3, 2),
+                position: Point::new(3, 2),
             };
             assert!(next_pieces.contains(&expected_piece));
 
@@ -361,7 +361,7 @@ mod tests {
             let expected_piece = Piece {
                 kind: PieceKind::T,
                 orientation: Orientation::East,
-                position: ISizePoint::new(2, 0),
+                position: Point::new(2, 0),
             };
             assert!(next_pieces.contains(&expected_piece));
         }
