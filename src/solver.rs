@@ -1,10 +1,12 @@
+use crate::board::Board;
 use crate::config::{srs, Config, RotationSystem};
 use crate::game::{Action as GameAction, Game};
-use crate::piece::{Piece, PIECE_KINDS};
+use crate::piece::{Piece, PieceKind, PIECE_KINDS};
 use crate::state::{Action, QueueError, ReduceError, State};
 use crate::utils::point::Point;
 use crate::utils::rotation::Orientation;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -25,37 +27,60 @@ impl Solver {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PerfectClearResult {
-    game_path: Vec<State>,
+pub struct SolverNode {
+    previous_node: Option<*const SolverNode>,
+    board: Board,
+    piece_kind: PieceKind,
 }
 
-pub fn branch_state_to_perfect_clears(config: &Config, state: &State) -> Vec<PerfectClearResult> {
-    let in_progress = vec![state.clone()];
-    let mut perfect_clear_results = vec![];
-    generate_next_states(config, state, in_progress, &mut perfect_clear_results);
-    perfect_clear_results
+impl Hash for SolverNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.previous_node.hash(state);
+        self.board.hash(state);
+        self.piece_kind.hash(state);
+    }
+}
+
+impl PartialEq for SolverNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.board == other.board && self.piece_kind == other.piece_kind
+    }
+}
+
+impl Eq for SolverNode {}
+
+pub fn branch_state_to_perfect_clears(
+    config: &Config,
+    state: &State,
+) -> Vec<Vec<(Board, PieceKind)>> {
+    let mut nodes = HashSet::new();
+    generate_next_states(config, state, None, &mut nodes);
+    nodes
+        .iter()
+        .filter(|node| node.board.can_perfect_clear())
+        .map(get_state_path)
+        .collect()
+}
+
+fn get_state_path(node: &SolverNode) -> Vec<(Board, PieceKind)> {
+    let mut node = node;
+    let mut path = vec![(node.board, node.piece_kind)];
+    while let Some(previous_node) = node.previous_node {
+        unsafe {
+            let previous_node = &*previous_node;
+            path.push((previous_node.board, previous_node.piece_kind));
+            node = previous_node
+        }
+    }
+    path
 }
 
 fn generate_next_states(
     config: &Config,
     state: &State,
-    in_progress: Vec<State>,
-    perfect_clear_results: &mut Vec<PerfectClearResult>,
+    previous_node: Option<*const SolverNode>,
+    nodes: &mut HashSet<SolverNode>,
 ) {
-    if state.game.board.can_perfect_clear() {
-        println!("found a perfect clear solution");
-        perfect_clear_results.push(PerfectClearResult {
-            game_path: in_progress,
-        });
-        return;
-    }
-
-    if state.moves_remaining == 0 {
-        println!("no solution after 10 moves");
-        return;
-    }
-
     branch_state_for_piece(config, state)
         .iter()
         .flat_map(|state_with_piece| {
@@ -75,25 +100,42 @@ fn generate_next_states(
                 })
         })
         .map(|state_after_move| {
-            state_after_move
-                .reduce(config, &Action::Play(GameAction::Place))
-                .unwrap()
+            (
+                state_after_move
+                    .reduce(config, &Action::Play(GameAction::Place))
+                    .unwrap(),
+                state_after_move.game.piece.unwrap().kind,
+            )
         })
-        .for_each(|state_after_place| {
+        .for_each(|(state_after_place, piece_kind)| {
             // Any perfect clear must only fill lines 0 to 3.
-            // Early return here before cloning work so far and state.
             if !state_after_place.game.board.is_line_empty(4) {
                 return;
             }
 
-            let mut next_in_progress = in_progress.to_vec();
-            next_in_progress.push(state_after_place.clone());
-            generate_next_states(
-                config,
-                &state_after_place,
-                next_in_progress,
-                perfect_clear_results,
-            )
+            if state_after_place.game.board.can_perfect_clear() {
+                println!("found a perfect clear solution");
+                let node = nodes.get_or_insert(SolverNode {
+                    previous_node,
+                    board: state_after_place.game.board,
+                    piece_kind,
+                });
+                println!("{:?}", get_state_path(node));
+                return;
+            }
+
+            if state_after_place.moves_remaining == 0 {
+                println!("no solution after 10 moves");
+                return;
+            }
+
+            let node = nodes.get_or_insert(SolverNode {
+                previous_node,
+                board: state_after_place.game.board,
+                piece_kind,
+            });
+
+            generate_next_states(config, &state_after_place, Some(node), nodes)
         });
 }
 
@@ -261,132 +303,25 @@ mod tests {
                 assert!(next_pieces.contains(&expected_piece));
             }
         }
-
-        #[test]
-        fn t_spin_triple() {
-            let board = {
-                let mut b = Board::filled_board();
-                for x in 3..=5 {
-                    for y in 5..24 {
-                        b.empty(&Point::new(x, y));
-                    }
-                }
-                b.empty(&Point::new(3, 0));
-                b.empty(&Point::new(3, 1));
-                b.empty(&Point::new(4, 1));
-                b.empty(&Point::new(3, 2));
-                b.empty(&Point::new(3, 3));
-                b.empty(&Point::new(4, 3));
-                b.empty(&Point::new(5, 3));
-                b.empty(&Point::new(4, 4));
-                b.empty(&Point::new(5, 4));
-                b
-            };
-
-            let game = Game {
-                piece: Some(Piece::spawn(&CONFIG, &PieceKind::T)),
-                board,
-                ..Game::initial()
-            };
-
-            let next_games = branch_game_to_placable_pieces(&CONFIG, &game);
-            let next_pieces = next_games
-                .into_iter()
-                .filter_map(|game| game.piece)
-                .collect::<Vec<_>>();
-
-            // 4 on the overhang for all orientations
-            // 2 beside the overhang for east and west
-            // 1 for north tucked under the overhang
-            // 1 for the t-spin triple
-            assert_eq!(next_pieces.len(), 4 + 2 + 1 + 1);
-
-            // North on overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::North,
-                position: Point::new(3, 4),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // South on overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::South,
-                position: Point::new(3, 4),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // East on overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::East,
-                position: Point::new(2, 5),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // West on overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::West,
-                position: Point::new(3, 4),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // East besides overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::East,
-                position: Point::new(3, 3),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // West besides overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::West,
-                position: Point::new(4, 3),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // North tucked under overhang
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::North,
-                position: Point::new(3, 2),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-
-            // T-spin triple
-            let expected_piece = Piece {
-                kind: PieceKind::T,
-                orientation: Orientation::East,
-                position: Point::new(2, 0),
-            };
-            assert!(next_pieces.contains(&expected_piece));
-        }
     }
 
-    // mod tests {
-    //     use super::*;
+    mod tests {
+        use super::*;
 
-    //     #[test]
-    //     pub fn test() {
-    //         let state = State {
-    //             game: Game {
-    //                 piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
-    //                 queue: PIECE_KINDS.map(|kind| Some(kind)),
-    //                 ..Game::initial()
-    //             },
-    //             ..State::initial()
-    //         };
-    //         let results = branch_state_to_perfect_clears(&CONFIG, &state);
-    //         for result in results {
-    //             let Some(last) = result.game_path.last() else {
-    //                 continue;
-    //             };
-    //             println!("{:?}", last);
-    //         }
-    //     }
-    // }
+        #[test]
+        pub fn test() {
+            let state = State {
+                game: Game {
+                    piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
+                    queue: PIECE_KINDS.map(|kind| Some(kind)),
+                    ..Game::initial()
+                },
+                ..State::initial()
+            };
+            let results = branch_state_to_perfect_clears(&CONFIG, &state);
+            for result in results {
+                println!("{:?}", result);
+            }
+        }
+    }
 }

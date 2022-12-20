@@ -151,7 +151,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&Point::new(x, 20));
+                board.fill(&Point::new(x, 2));
             }
 
             let mut queue: [Option<PieceKind>; 7] = [None; 7];
@@ -258,7 +258,7 @@ mod tests {
         fn invalid_if_new_piece_intersects_board() {
             let mut board = Board::empty_board();
             for x in 3..7 {
-                board.fill(&Point::new(x, 20));
+                board.fill(&Point::new(x, 2));
             }
 
             let state = State {

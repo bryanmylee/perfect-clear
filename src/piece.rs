@@ -48,13 +48,13 @@ impl PieceKind {
     pub fn get_spawn_point(&self, config: &Config) -> Point {
         match config.rotation_system {
             RotationSystem::SRS => match self {
-                PieceKind::I => Point::new(3, 18),
-                PieceKind::J => Point::new(3, 19),
-                PieceKind::L => Point::new(3, 19),
-                PieceKind::O => Point::new(3, 19),
-                PieceKind::S => Point::new(3, 19),
-                PieceKind::T => Point::new(3, 19),
-                PieceKind::Z => Point::new(3, 19),
+                PieceKind::I => Point::new(3, 0),
+                PieceKind::J => Point::new(3, 1),
+                PieceKind::L => Point::new(3, 1),
+                PieceKind::O => Point::new(3, 1),
+                PieceKind::S => Point::new(3, 1),
+                PieceKind::T => Point::new(3, 1),
+                PieceKind::Z => Point::new(3, 1),
             },
         }
     }
