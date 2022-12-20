@@ -49,13 +49,10 @@ impl PartialEq for SolverNode {
 
 impl Eq for SolverNode {}
 
-pub fn branch_state_to_perfect_clears(
-    config: &Config,
-    state: &State,
-) -> Vec<Vec<(Board, PieceKind)>> {
-    let mut nodes = HashSet::new();
-    generate_next_states(config, state, None, &mut nodes);
-    nodes
+pub fn get_perfect_clear_paths(config: &Config, state: &State) -> Vec<Vec<(Board, PieceKind)>> {
+    let mut path_table = HashSet::new();
+    generate_next_states(config, state, None, &mut path_table);
+    path_table
         .iter()
         .filter(|node| node.board.can_perfect_clear())
         .map(get_state_path)
@@ -79,7 +76,7 @@ fn generate_next_states(
     config: &Config,
     state: &State,
     previous_node: Option<*const SolverNode>,
-    nodes: &mut HashSet<SolverNode>,
+    path_table: &mut HashSet<SolverNode>,
 ) {
     branch_state_for_piece(config, state)
         .iter()
@@ -115,7 +112,7 @@ fn generate_next_states(
 
             if state_after_place.game.board.can_perfect_clear() {
                 println!("found a perfect clear solution");
-                let node = nodes.get_or_insert(SolverNode {
+                let node = path_table.get_or_insert(SolverNode {
                     previous_node,
                     board: state_after_place.game.board,
                     piece_kind,
@@ -129,13 +126,13 @@ fn generate_next_states(
                 return;
             }
 
-            let node = nodes.get_or_insert(SolverNode {
+            let node = path_table.get_or_insert(SolverNode {
                 previous_node,
                 board: state_after_place.game.board,
                 piece_kind,
             });
 
-            generate_next_states(config, &state_after_place, Some(node), nodes)
+            generate_next_states(config, &state_after_place, Some(node), path_table)
         });
 }
 
@@ -313,7 +310,7 @@ mod tests {
                 },
                 ..State::initial()
             };
-            let results = branch_state_to_perfect_clears(&CONFIG, &state);
+            let results = get_perfect_clear_paths(&CONFIG, &state);
             for result in results {
                 println!("{:?}", result);
             }
