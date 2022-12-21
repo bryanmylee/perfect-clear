@@ -1,5 +1,5 @@
 use petgraph::graph::NodeIndex;
-use petgraph::{Directed, Graph, Undirected};
+use petgraph::{Directed, EdgeType, Graph, Undirected};
 
 pub struct SourceSinkGraph<N, E, Ty = Directed> {
     pub source: Option<NodeIndex>,
@@ -24,5 +24,22 @@ impl<N, E> SourceSinkGraph<N, E, Undirected> {
             sink: None,
             graph: Graph::new_undirected(),
         }
+    }
+}
+
+impl<N, E, Ty> SourceSinkGraph<N, E, Ty>
+where
+    Ty: EdgeType,
+{
+    pub fn add_source_node(&mut self, weight: N) -> NodeIndex {
+        let idx = self.graph.add_node(weight);
+        self.source = Some(idx);
+        idx
+    }
+
+    pub fn add_sink_node(&mut self, weight: N) -> NodeIndex {
+        let idx = self.graph.add_node(weight);
+        self.sink = Some(idx);
+        idx
     }
 }
