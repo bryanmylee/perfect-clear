@@ -116,10 +116,10 @@ Testing with uniform distribution of piece probabilities.
 
 | Strategy                                                           |        Time to first result |
 | ------------------------------------------------------------------ | --------------------------: |
-| `Vec<State>` to store in progress paths                            |                     389.78s |
+| `Vec<State>` to store in progress paths                            |                        389s |
 | `[Option<State>; 10]` to store in progress paths with `Copy` trait |  DNF (out-of-bounds access) |
 | Graph implemented with `HashSet`                                   | DNF (invalid memory access) |
-| `petgraph::graph::Graph`                                           |                         DNF |
+| `petgraph::graph::Graph`                                           |              258s, 45s, DNF |
 
 It takes roughly 5 minutes to calculate a single perfect clear result which may not even be applicable to the game situation.
 
