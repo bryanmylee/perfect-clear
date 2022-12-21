@@ -11,7 +11,7 @@ pub struct State {
 
     pub moves_remaining: isize,
 
-    pub current_prob: f32,
+    pub current_probability: f32,
 }
 
 impl State {
@@ -20,7 +20,7 @@ impl State {
             game: Game::initial(),
             seen_piece_kind_in_bag: [false; 7],
             moves_remaining: 10,
-            current_prob: 1.0,
+            current_probability: 1.0,
         }
     }
 
@@ -78,7 +78,7 @@ impl State {
         &self,
         config: &Config,
         kind: &PieceKind,
-        prob: f32,
+        probability: f32,
     ) -> Result<State, QueueError> {
         let next_piece = Piece::spawn(config, kind);
 
@@ -92,7 +92,7 @@ impl State {
                 piece: Some(next_piece),
                 ..next_state.game
             },
-            current_prob: self.current_prob * prob,
+            current_probability: probability,
             ..next_state
         })
     }
@@ -299,7 +299,7 @@ mod tests {
             assert!(next_state.game.piece.is_some());
             assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
 
-            assert_eq!(next_state.current_prob, 0.5);
+            assert_eq!(next_state.current_probability, 0.5);
         }
     }
 }
