@@ -2,14 +2,14 @@ use crate::board::Board;
 use crate::config::Config;
 use crate::game::{Action as GameAction, Game};
 use crate::piece::{Piece, PieceKind, PIECE_KINDS};
-use crate::state::{Action, QueueError, ReduceError, State};
+use crate::state::{Action, State};
 use crate::utils::point::Point;
 use crate::utils::rotation::Orientation;
-use crate::utils::source_sink_graph::SourceSinkGraph;
+use crate::utils::weight_indexed_graph::WeightIndexedGraph;
 use petgraph::algo::all_simple_paths;
-use petgraph::graph::{Graph, NodeIndex};
-use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
+use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -40,20 +40,31 @@ pub fn get_perfect_clear_paths(
     config: &Config,
     state: &State,
 ) -> Vec<Vec<(Board, PieceKind, f32)>> {
-    let mut node_graph = SourceSinkGraph::new();
-    let empty_board_idx = node_graph.add_source_node(state.game.board);
+    let mut node_graph = WeightIndexedGraph::new();
+    let empty_board_idx = node_graph.add_node(state.game.board);
     generate_next_states(config, state, empty_board_idx, &mut node_graph);
     get_perfect_clear_paths_from_graph(&node_graph)
 }
 
 fn get_perfect_clear_paths_from_graph(
-    node_graph: &SourceSinkGraph<Board, BoardEdge>,
+    node_graph: &WeightIndexedGraph<Board, BoardEdge>,
 ) -> Vec<Vec<(Board, PieceKind, f32)>> {
-    let (Some(source_idx), Some(sink_idx)) = (node_graph.source, node_graph.sink) else {
+    let Some(empty_idx) = node_graph.get_node_index(Board::empty_board()) else {
         return vec![];
     };
     let graph = &node_graph.graph;
-    all_simple_paths::<Vec<_>, _>(graph, source_idx, sink_idx, 8, None)
+
+    let paths = Board::PC_BOARDS
+        .iter()
+        .filter_map(|&board| node_graph.get_node_index(board))
+        .map(|pc_idx| {
+            all_simple_paths::<Vec<_>, _>(graph, empty_idx, pc_idx, 4, None).collect::<Vec<_>>()
+        })
+        .reduce(|total, prev| [total, prev].concat())
+        .unwrap_or(vec![]);
+
+    paths
+        .iter()
         .map(|indices| {
             indices
                 .windows(2)
@@ -73,7 +84,7 @@ fn generate_next_states(
     config: &Config,
     state: &State,
     previous_board_idx: NodeIndex,
-    node_graph: &mut SourceSinkGraph<Board, BoardEdge>,
+    node_graph: &mut WeightIndexedGraph<Board, BoardEdge>,
 ) {
     branch_state_for_piece(config, state)
         .iter()
@@ -120,15 +131,33 @@ fn generate_next_states(
 
             if state_after_place.game.board.can_perfect_clear() {
                 println!("found a perfect clear solution");
-                let sink_idx = node_graph.add_sink_node(state_after_place.game.board);
-                node_graph.graph.add_edge(
-                    sink_idx,
-                    previous_board_idx,
-                    BoardEdge {
-                        piece_kind,
-                        probability,
-                    },
-                );
+                let pc_board_idx = node_graph.add_node(state_after_place.game.board);
+
+                let edge = node_graph
+                    .graph
+                    .edges_connecting(previous_board_idx, pc_board_idx)
+                    .find(|e| e.weight().piece_kind == piece_kind);
+
+                if let Some(edge) = edge {
+                    let edge_weight = node_graph.graph.edge_weight_mut(edge.id()).unwrap();
+                    if probability > edge_weight.probability {
+                        edge_weight.probability = probability;
+                    }
+                } else {
+                    node_graph.graph.add_edge(
+                        previous_board_idx,
+                        pc_board_idx,
+                        BoardEdge {
+                            piece_kind,
+                            probability,
+                        },
+                    );
+                }
+
+                // node_graph
+                //     .graph
+                //     .update_edge(previous_board_idx, pc_board_idx, BoardEdge {});
+
                 // DEBUG
                 let paths = get_perfect_clear_paths_from_graph(node_graph);
                 println!("{:?}", paths);
@@ -142,8 +171,8 @@ fn generate_next_states(
 
             let board_idx = node_graph.graph.add_node(state_after_place.game.board);
             node_graph.graph.add_edge(
-                board_idx,
                 previous_board_idx,
+                board_idx,
                 BoardEdge {
                     piece_kind,
                     probability,
