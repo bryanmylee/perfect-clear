@@ -5,6 +5,9 @@ use crate::piece::{Piece, PieceKind, PIECE_KINDS};
 use crate::state::{Action, QueueError, ReduceError, State};
 use crate::utils::point::Point;
 use crate::utils::rotation::Orientation;
+use crate::utils::source_sink_graph::SourceSinkGraph;
+use petgraph::algo::all_simple_paths;
+use petgraph::graph::{Graph, NodeIndex};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use wasm_bindgen::prelude::*;
@@ -27,84 +30,89 @@ impl Solver {
     }
 }
 
-pub struct SolverNode {
-    previous_node: Option<*const SolverNode>,
-    board: Board,
+#[derive(Debug)]
+struct BoardEdge {
     piece_kind: PieceKind,
+    probability: f32,
 }
 
-impl Hash for SolverNode {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.previous_node.hash(state);
-        self.board.hash(state);
-        self.piece_kind.hash(state);
-    }
+pub fn get_perfect_clear_paths(
+    config: &Config,
+    state: &State,
+) -> Vec<Vec<(Board, PieceKind, f32)>> {
+    let mut node_graph = SourceSinkGraph::new();
+    let empty_board_idx = node_graph.add_source_node(state.game.board);
+    generate_next_states(config, state, empty_board_idx, &mut node_graph);
+    get_perfect_clear_paths_from_graph(&node_graph)
 }
 
-impl PartialEq for SolverNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.board == other.board && self.piece_kind == other.piece_kind
-    }
-}
-
-impl Eq for SolverNode {}
-
-pub fn get_perfect_clear_paths(config: &Config, state: &State) -> Vec<Vec<(Board, PieceKind)>> {
-    let mut path_table = HashSet::new();
-    generate_next_states(config, state, None, &mut path_table);
-    path_table
-        .iter()
-        .filter(|node| node.board.can_perfect_clear())
-        .map(get_state_path)
+fn get_perfect_clear_paths_from_graph(
+    node_graph: &SourceSinkGraph<Board, BoardEdge>,
+) -> Vec<Vec<(Board, PieceKind, f32)>> {
+    let (Some(source_idx), Some(sink_idx)) = (node_graph.source, node_graph.sink) else {
+        return vec![];
+    };
+    let graph = &node_graph.graph;
+    all_simple_paths::<Vec<_>, _>(graph, source_idx, sink_idx, 8, None)
+        .map(|indices| {
+            indices
+                .windows(2)
+                .map(|window| {
+                    let from = window[0];
+                    let to = window[1];
+                    let from_board = graph[from];
+                    let edge = graph.edges_connecting(from, to).next().unwrap().weight();
+                    (from_board, edge.piece_kind, edge.probability)
+                })
+                .collect()
+        })
         .collect()
-}
-
-fn get_state_path(node: &SolverNode) -> Vec<(Board, PieceKind)> {
-    let mut node = node;
-    let mut path = vec![(node.board, node.piece_kind)];
-    while let Some(previous_node) = node.previous_node {
-        unsafe {
-            let previous_node = &*previous_node;
-            path.push((previous_node.board, previous_node.piece_kind));
-            node = previous_node
-        }
-    }
-    path
 }
 
 fn generate_next_states(
     config: &Config,
     state: &State,
-    previous_node: Option<*const SolverNode>,
-    path_table: &mut HashSet<SolverNode>,
+    previous_board_idx: NodeIndex,
+    node_graph: &mut SourceSinkGraph<Board, BoardEdge>,
 ) {
     branch_state_for_piece(config, state)
         .iter()
-        .flat_map(|state_with_piece| {
+        .flat_map(|(state_with_piece, probability)| {
             branch_game_on_hold(config, &state_with_piece.game)
                 .into_iter()
-                .map(move |game_after_hold| State {
-                    game: game_after_hold,
-                    ..state_with_piece.clone()
+                .map(move |game_after_hold| {
+                    (
+                        State {
+                            game: game_after_hold,
+                            ..state_with_piece.clone()
+                        },
+                        probability,
+                    )
                 })
         })
-        .flat_map(|state_after_hold| {
+        .flat_map(|(state_after_hold, probability)| {
             branch_game_to_placable_pieces(config, &state_after_hold.game)
                 .into_iter()
-                .map(move |game_after_move| State {
-                    game: game_after_move,
-                    ..state_after_hold.clone()
+                .map(move |game_after_move| {
+                    (
+                        State {
+                            game: game_after_move,
+                            ..state_after_hold.clone()
+                        },
+                        probability,
+                    )
                 })
         })
-        .map(|state_after_move| {
+        .map(|(state_after_move, probability)| {
             (
                 state_after_move
                     .reduce(config, &Action::Play(GameAction::Place))
                     .unwrap(),
+                probability,
                 state_after_move.game.piece.unwrap().kind,
             )
         })
-        .for_each(|(state_after_place, piece_kind)| {
+        .for_each(|(state_after_place, &probability, piece_kind)| {
             // Any perfect clear must only fill lines 0 to 3.
             if !state_after_place.game.board.is_line_empty(4) {
                 return;
@@ -112,59 +120,64 @@ fn generate_next_states(
 
             if state_after_place.game.board.can_perfect_clear() {
                 println!("found a perfect clear solution");
-                let node = path_table.get_or_insert(SolverNode {
-                    previous_node,
-                    board: state_after_place.game.board,
-                    piece_kind,
-                });
-                println!("{:?}", get_state_path(node));
+                let sink_idx = node_graph.add_sink_node(state_after_place.game.board);
+                node_graph.graph.add_edge(
+                    sink_idx,
+                    previous_board_idx,
+                    BoardEdge {
+                        piece_kind,
+                        probability,
+                    },
+                );
+                // DEBUG
+                let paths = get_perfect_clear_paths_from_graph(node_graph);
+                println!("{:?}", paths);
+                // =====
                 return;
             }
 
             if state_after_place.moves_remaining == 0 {
-                println!("no solution after 10 moves");
                 return;
             }
 
-            let node = path_table.get_or_insert(SolverNode {
-                previous_node,
-                board: state_after_place.game.board,
-                piece_kind,
-            });
+            let board_idx = node_graph.graph.add_node(state_after_place.game.board);
+            node_graph.graph.add_edge(
+                board_idx,
+                previous_board_idx,
+                BoardEdge {
+                    piece_kind,
+                    probability,
+                },
+            );
 
-            generate_next_states(config, &state_after_place, Some(node), path_table)
+            generate_next_states(config, &state_after_place, board_idx, node_graph)
         });
 }
 
-const NEXT_PROB: f32 = 1.0 / 7.0;
+const NEXT_PROBABILITY: f32 = 1.0 / 7.0;
 
-pub fn branch_state_for_piece(config: &Config, state: &State) -> Vec<State> {
+fn branch_state_for_piece(config: &Config, state: &State) -> Vec<(State, f32)> {
     if state.game.piece.is_some() {
-        return vec![state.clone()];
+        return vec![(state.clone(), 1.0)];
     }
-    match state.reduce(config, &Action::ConsumeQueue) {
-        Ok(s) => vec![s],
-        Err(ReduceError::ConsumeQueue(QueueError::QueueEmpty)) => PIECE_KINDS
-            .iter()
-            .filter_map(|&kind| {
-                state
-                    .reduce(
-                        config,
-                        &Action::GuessNext {
-                            kind,
-                            // Assume all next pieces are equally likely for now.
-                            // TODO Calculate next probabilities.
-                            prob: NEXT_PROB,
-                        },
-                    )
-                    .ok()
-            })
-            .collect(),
-        _ => vec![],
+    if let Ok(state_after_consume_queue) = state.reduce(config, &Action::ConsumeQueue) {
+        return vec![(state_after_consume_queue, 1.0)];
     }
+    PIECE_KINDS
+        .iter()
+        .filter_map(|&kind| {
+            // Assume all next pieces are equally likely for now.
+            // TODO Calculate next probabilities.
+            let guess_probability = NEXT_PROBABILITY;
+            match state.reduce(config, &Action::WithNextPiece { kind }) {
+                Ok(state) => Some((state, guess_probability)),
+                Err(_) => None,
+            }
+        })
+        .collect()
 }
 
-pub fn branch_game_on_hold(config: &Config, game: &Game) -> Vec<Game> {
+fn branch_game_on_hold(config: &Config, game: &Game) -> Vec<Game> {
     [true, false]
         .iter()
         .filter_map(|&switch| game.reduce(config, &GameAction::Hold { switch }).ok())
@@ -178,7 +191,7 @@ struct PlaceablePiecesValue {
     previous_key: Option<PlaceablePiecesKey>,
 }
 
-pub fn branch_game_to_placable_pieces(config: &Config, game: &Game) -> Vec<Game> {
+fn branch_game_to_placable_pieces(config: &Config, game: &Game) -> Vec<Game> {
     let Some(piece) = game.piece else {
             return vec![];
         };
@@ -301,7 +314,7 @@ mod tests {
         use super::*;
 
         #[test]
-        pub fn test() {
+        fn test() {
             let state = State {
                 game: Game {
                     piece: Some(Piece::spawn(&CONFIG, &PieceKind::I)),
@@ -311,9 +324,9 @@ mod tests {
                 ..State::initial()
             };
             let results = get_perfect_clear_paths(&CONFIG, &state);
-            for result in results {
-                println!("{:?}", result);
-            }
+            // for result in results {
+            //     println!("{:?}", result);
+            // }
         }
     }
 }

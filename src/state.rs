@@ -10,8 +10,6 @@ pub struct State {
     pub seen_piece_kind_in_bag: [bool; 7],
 
     pub moves_remaining: isize,
-
-    pub current_probability: f32,
 }
 
 impl State {
@@ -20,7 +18,6 @@ impl State {
             game: Game::initial(),
             seen_piece_kind_in_bag: [false; 7],
             moves_remaining: 10,
-            current_probability: 1.0,
         }
     }
 
@@ -29,8 +26,8 @@ impl State {
             Action::ConsumeQueue => self
                 .with_consumed_queue(config)
                 .map_err(|e| ReduceError::ConsumeQueue(e)),
-            Action::GuessNext { kind, prob } => self
-                .with_guessed_next(config, kind, *prob)
+            Action::WithNextPiece { kind } => self
+                .with_next_piece(config, kind)
                 .map_err(|e| ReduceError::ConsumeQueue(e)),
             Action::Play(action) => self
                 .game
@@ -74,12 +71,7 @@ impl State {
         })
     }
 
-    fn with_guessed_next(
-        &self,
-        config: &Config,
-        kind: &PieceKind,
-        probability: f32,
-    ) -> Result<State, QueueError> {
+    fn with_next_piece(&self, config: &Config, kind: &PieceKind) -> Result<State, QueueError> {
         let next_piece = Piece::spawn(config, kind);
 
         if !self.game.board.can_fit(&next_piece.get_points(config)) {
@@ -92,7 +84,6 @@ impl State {
                 piece: Some(next_piece),
                 ..next_state.game
             },
-            current_probability: probability,
             ..next_state
         })
     }
@@ -101,7 +92,7 @@ impl State {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     ConsumeQueue,
-    GuessNext { kind: PieceKind, prob: f32 },
+    WithNextPiece { kind: PieceKind },
     Play(GameAction),
 }
 
@@ -266,13 +257,7 @@ mod tests {
                 ..State::initial()
             };
 
-            let next_state = state.reduce(
-                &CONFIG,
-                &Action::GuessNext {
-                    kind: PieceKind::I,
-                    prob: 0.5,
-                },
-            );
+            let next_state = state.reduce(&CONFIG, &Action::WithNextPiece { kind: PieceKind::I });
 
             assert_eq!(
                 next_state,
@@ -282,24 +267,16 @@ mod tests {
         }
 
         #[test]
-        fn updates_prob_and_sets_piece() {
+        fn updates_piece() {
             let state = State::initial();
 
-            let next_state = state.reduce(
-                &CONFIG,
-                &Action::GuessNext {
-                    kind: PieceKind::J,
-                    prob: 0.5,
-                },
-            );
+            let next_state = state.reduce(&CONFIG, &Action::WithNextPiece { kind: PieceKind::J });
 
             assert!(next_state.is_ok());
             let next_state = next_state.unwrap();
 
             assert!(next_state.game.piece.is_some());
             assert_eq!(next_state.game.piece.as_ref().unwrap().kind, PieceKind::J);
-
-            assert_eq!(next_state.current_probability, 0.5);
         }
     }
 }

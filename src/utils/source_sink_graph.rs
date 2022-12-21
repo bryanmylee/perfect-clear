@@ -32,12 +32,18 @@ where
     Ty: EdgeType,
 {
     pub fn add_source_node(&mut self, weight: N) -> NodeIndex {
+        if let Some(source_idx) = self.source {
+            return source_idx;
+        }
         let idx = self.graph.add_node(weight);
         self.source = Some(idx);
         idx
     }
 
     pub fn add_sink_node(&mut self, weight: N) -> NodeIndex {
+        if let Some(sink_idx) = self.sink {
+            return sink_idx;
+        }
         let idx = self.graph.add_node(weight);
         self.sink = Some(idx);
         idx
