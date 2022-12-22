@@ -1,13 +1,13 @@
 use crate::config::Config;
 use crate::game::{Action as GameAction, Game, ReduceError as GameError};
 use crate::piece::{Piece, PieceKind};
+use crate::utils::piece_kind_set::PieceKindSet;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     pub game: Game,
 
-    /// A fixed-size arrayset indexed by `PieceKind as u8`.
-    pub seen_piece_kind_in_bag: [bool; 7],
+    pub seen_piece_kind_in_bag: PieceKindSet<bool>,
 
     pub moves_remaining: isize,
 }
@@ -16,7 +16,7 @@ impl State {
     pub fn initial() -> State {
         State {
             game: Game::initial(),
-            seen_piece_kind_in_bag: [false; 7],
+            seen_piece_kind_in_bag: PieceKindSet::new_with_value(false),
             moves_remaining: 10,
         }
     }

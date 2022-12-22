@@ -1,4 +1,5 @@
 pub mod direction;
+pub mod piece_kind_set;
 pub mod point;
 pub mod rotation;
 pub mod source_sink_graph;
