@@ -10,6 +10,7 @@ use petgraph::algo::all_simple_paths;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -30,10 +31,23 @@ impl Solver {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+struct GraphNode {
+    board: Board,
+    moves_remaining: u8,
+    is_valid: bool,
+}
+
+impl Hash for GraphNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.board.hash(state);
+        self.moves_remaining.hash(state);
+    }
+}
+
 #[derive(Debug)]
-struct BoardEdge {
+struct GraphEdge {
     piece_kind: PieceKind,
-    probability: f32,
 }
 
 pub fn get_perfect_clear_paths(
@@ -41,156 +55,131 @@ pub fn get_perfect_clear_paths(
     state: &State,
 ) -> Vec<Vec<(Board, PieceKind, f32)>> {
     let mut node_graph = WeightIndexedGraph::new();
-    let empty_board_idx = node_graph.add_node(state.game.board);
-    generate_next_states(config, state, empty_board_idx, &mut node_graph);
+    let board_too_high = !state.game.board.is_line_empty(4);
+    let can_perfect_clear = state.game.board.can_perfect_clear();
+    let out_of_moves = state.moves_remaining == 0 && !can_perfect_clear;
+    let is_valid = !board_too_high && !out_of_moves;
+    let node_idx = node_graph.update_node(GraphNode {
+        board: state.game.board,
+        moves_remaining: state.moves_remaining,
+        is_valid,
+    });
+    generate_next_states(config, state, node_idx, &mut node_graph);
     get_perfect_clear_paths_from_graph(&node_graph)
 }
 
 fn get_perfect_clear_paths_from_graph(
-    node_graph: &WeightIndexedGraph<Board, BoardEdge>,
+    node_graph: &WeightIndexedGraph<GraphNode, GraphEdge>,
 ) -> Vec<Vec<(Board, PieceKind, f32)>> {
-    let Some(empty_idx) = node_graph.get_node_index(Board::empty_board()) else {
-        return vec![];
-    };
-    let graph = &node_graph.graph;
+    // TODO Re-implement this.
+    vec![]
+    // let Some(empty_idx) = node_graph.get_node_index(Board::empty_board()) else {
+    //     return vec![];
+    // };
+    // let graph = &node_graph.graph;
 
-    let paths = Board::PC_BOARDS
-        .iter()
-        .filter_map(|&board| node_graph.get_node_index(board))
-        .map(|pc_idx| {
-            all_simple_paths::<Vec<_>, _>(graph, empty_idx, pc_idx, 4, None).collect::<Vec<_>>()
-        })
-        .reduce(|total, prev| [total, prev].concat())
-        .unwrap_or(vec![]);
+    // let paths = Board::PC_BOARDS
+    //     .iter()
+    //     .filter_map(|&board| node_graph.get_node_index(board))
+    //     .map(|pc_idx| {
+    //         all_simple_paths::<Vec<_>, _>(graph, empty_idx, pc_idx, 4, None).collect::<Vec<_>>()
+    //     })
+    //     .reduce(|total, prev| [total, prev].concat())
+    //     .unwrap_or(vec![]);
 
-    paths
-        .iter()
-        .map(|indices| {
-            indices
-                .windows(2)
-                .map(|window| {
-                    let from = window[0];
-                    let to = window[1];
-                    let from_board = graph[from];
-                    let edge = graph.edges_connecting(from, to).next().unwrap().weight();
-                    (from_board, edge.piece_kind, edge.probability)
-                })
-                .collect()
-        })
-        .collect()
+    // paths
+    //     .iter()
+    //     .map(|indices| {
+    //         indices
+    //             .windows(2)
+    //             .map(|window| {
+    //                 let from = window[0];
+    //                 let to = window[1];
+    //                 let from_board = graph[from];
+    //                 let edge = graph.edges_connecting(from, to).next().unwrap().weight();
+    //                 (from_board, edge.piece_kind, edge.probability)
+    //             })
+    //             .collect()
+    //     })
+    //     .collect()
 }
 
 fn generate_next_states(
     config: &Config,
-    state: &State,
-    previous_board_idx: NodeIndex,
-    node_graph: &mut WeightIndexedGraph<Board, BoardEdge>,
+    previous_state: &State,
+    previous_node_idx: NodeIndex,
+    node_graph: &mut WeightIndexedGraph<GraphNode, GraphEdge>,
 ) {
-    branch_state_for_piece(config, state)
+    branch_state_for_piece(config, previous_state)
         .iter()
-        .flat_map(|(state_with_piece, probability)| {
+        .flat_map(|state_with_piece| {
             branch_game_on_hold(config, &state_with_piece.game)
                 .into_iter()
-                .map(move |game_after_hold| {
-                    (
-                        State {
-                            game: game_after_hold,
-                            ..state_with_piece.clone()
-                        },
-                        probability,
-                    )
+                .map(move |game_after_hold| State {
+                    game: game_after_hold,
+                    ..state_with_piece.clone()
                 })
         })
-        .flat_map(|(state_after_hold, probability)| {
+        .flat_map(|state_after_hold| {
             branch_game_to_placable_pieces(config, &state_after_hold.game)
                 .into_iter()
-                .map(move |game_after_move| {
-                    (
-                        State {
-                            game: game_after_move,
-                            ..state_after_hold.clone()
-                        },
-                        probability,
-                    )
+                .map(move |game_after_move| State {
+                    game: game_after_move,
+                    ..state_after_hold.clone()
                 })
         })
-        .map(|(state_after_move, probability)| {
+        .map(|state_after_move| {
             (
                 state_after_move
                     .reduce(config, &Action::Play(GameAction::Place))
                     .unwrap(),
-                probability,
                 state_after_move.game.piece.unwrap().kind,
             )
         })
-        .for_each(|(state_after_place, &probability, piece_kind)| {
-            // Any perfect clear must only fill lines 0 to 3.
-            if !state_after_place.game.board.is_line_empty(4) {
-                return;
-            }
+        .for_each(|(state_after_place, piece_kind)| {
+            let board_too_high = !state_after_place.game.board.is_line_empty(4);
+            let can_perfect_clear = state_after_place.game.board.can_perfect_clear();
+            let out_of_moves = state_after_place.moves_remaining == 0 && !can_perfect_clear;
 
-            if state_after_place.game.board.can_perfect_clear() {
-                println!("found a perfect clear solution");
-                let pc_board_idx = node_graph.add_node(state_after_place.game.board);
+            let is_valid = !board_too_high && !out_of_moves;
 
-                let edge = node_graph
+            let graph_node = GraphNode {
+                board: state_after_place.game.board,
+                is_valid,
+                moves_remaining: state_after_place.moves_remaining,
+            };
+
+            if let Some(node_idx) = node_graph.get_node_index(graph_node) {
+                node_graph
                     .graph
-                    .edges_connecting(previous_board_idx, pc_board_idx)
-                    .find(|e| e.weight().piece_kind == piece_kind);
-
-                if let Some(edge) = edge {
-                    let edge_weight = node_graph.graph.edge_weight_mut(edge.id()).unwrap();
-                    if probability > edge_weight.probability {
-                        edge_weight.probability = probability;
-                    }
-                } else {
-                    node_graph.graph.add_edge(
-                        previous_board_idx,
-                        pc_board_idx,
-                        BoardEdge {
-                            piece_kind,
-                            probability,
-                        },
-                    );
-                }
-
-                // node_graph
-                //     .graph
-                //     .update_edge(previous_board_idx, pc_board_idx, BoardEdge {});
-
-                // DEBUG
-                let paths = get_perfect_clear_paths_from_graph(node_graph);
-                println!("{:?}", paths);
-                // =====
+                    .add_edge(previous_node_idx, node_idx, GraphEdge { piece_kind });
                 return;
             }
 
-            if state_after_place.moves_remaining == 0 {
+            let Ok(node_idx) = node_graph.add_node(graph_node) else {
+                return;
+            };
+
+            if can_perfect_clear {
+                println!("found a perfect clear solution");
+            }
+
+            if can_perfect_clear || board_too_high || out_of_moves {
                 return;
             }
 
-            let board_idx = node_graph.graph.add_node(state_after_place.game.board);
-            node_graph.graph.add_edge(
-                previous_board_idx,
-                board_idx,
-                BoardEdge {
-                    piece_kind,
-                    probability,
-                },
-            );
-
-            generate_next_states(config, &state_after_place, board_idx, node_graph)
+            generate_next_states(config, &state_after_place, node_idx, node_graph);
         });
 }
 
 const NEXT_PROBABILITY: f32 = 1.0 / 7.0;
 
-fn branch_state_for_piece(config: &Config, state: &State) -> Vec<(State, f32)> {
+fn branch_state_for_piece(config: &Config, state: &State) -> Vec<State> {
     if state.game.piece.is_some() {
-        return vec![(state.clone(), 1.0)];
+        return vec![state.clone()];
     }
     if let Ok(state_after_consume_queue) = state.reduce(config, &Action::ConsumeQueue) {
-        return vec![(state_after_consume_queue, 1.0)];
+        return vec![state_after_consume_queue];
     }
     PIECE_KINDS
         .iter()
@@ -199,7 +188,7 @@ fn branch_state_for_piece(config: &Config, state: &State) -> Vec<(State, f32)> {
             // TODO Calculate next probabilities.
             let guess_probability = NEXT_PROBABILITY;
             match state.reduce(config, &Action::WithNextPiece { kind }) {
-                Ok(state) => Some((state, guess_probability)),
+                Ok(state) => Some(state),
                 Err(_) => None,
             }
         })

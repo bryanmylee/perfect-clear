@@ -32,7 +32,16 @@ where
     N: Hash + Eq + Copy,
     Ty: EdgeType,
 {
-    pub fn add_node(&mut self, weight: N) -> NodeIndex {
+    pub fn add_node(&mut self, weight: N) -> Result<NodeIndex, AddNodeError> {
+        if self.index_for_weight.contains_key(&weight) {
+            return Err(AddNodeError::DuplicateNode);
+        }
+        let index = self.graph.add_node(weight);
+        self.index_for_weight.insert(weight, index);
+        Ok(index)
+    }
+
+    pub fn update_node(&mut self, weight: N) -> NodeIndex {
         if let Some(&index) = self.index_for_weight.get(&weight) {
             return index;
         }
@@ -44,4 +53,8 @@ where
     pub fn get_node_index(&self, weight: N) -> Option<NodeIndex> {
         self.index_for_weight.get(&weight).copied()
     }
+}
+
+pub enum AddNodeError {
+    DuplicateNode,
 }

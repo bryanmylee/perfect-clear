@@ -9,7 +9,7 @@ pub struct State {
 
     pub seen_piece_kind_in_bag: PieceKindSet<bool>,
 
-    pub moves_remaining: isize,
+    pub moves_remaining: u8,
 }
 
 impl State {
