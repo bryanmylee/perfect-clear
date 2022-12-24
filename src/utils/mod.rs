@@ -1,6 +1,9 @@
 pub mod direction;
+pub mod piece_kind_set;
 pub mod point;
 pub mod rotation;
+pub mod source_sink_graph;
+pub mod weight_indexed_graph;
 
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the

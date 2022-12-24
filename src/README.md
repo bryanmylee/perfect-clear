@@ -114,10 +114,13 @@ Currently, the solver explores the entire problem space given the constraints an
 
 Testing with uniform distribution of piece probabilities.
 
-| Strategy                                                           | Time to first result |
-| ------------------------------------------------------------------ | -------------------: |
-| `Vec<State>` to store in progress paths                            |      60.62s, 389.78s |
-| `[Option<State>; 10]` to store in progress paths with `Copy` trait |     325.33s (failed) |
+| Strategy                                                           |           Time to first result |
+| ------------------------------------------------------------------ | -----------------------------: |
+| `Vec<State>` to store in progress paths                            |                           389s |
+| `[Option<State>; 10]` to store in progress paths with `Copy` trait |     DNF (out-of-bounds access) |
+| Graph implemented with `HashSet`                                   |    DNF (invalid memory access) |
+| `petgraph::graph::Graph` track probabilities and boards            |                 258s, 45s, DNF |
+| `petgraph::graph::Graph` deduplicate boards                        | ~420s (4 line), ~660s (2 line) |
 
 It takes roughly 5 minutes to calculate a single perfect clear result which may not even be applicable to the game situation.
 

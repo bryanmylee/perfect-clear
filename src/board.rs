@@ -52,6 +52,35 @@ impl Board {
         }
     }
 
+    pub const ONE_PC_FILL: u64 =
+        0b0000000000_0000000000_0000000000_0000000000_0000000000_1111111111;
+    pub const TWO_PC_FILL: u64 =
+        0b0000000000_0000000000_0000000000_0000000000_1111111111_1111111111;
+    pub const THREE_PC_FILL: u64 =
+        0b0000000000_0000000000_0000000000_1111111111_1111111111_1111111111;
+    pub const FOUR_PC_FILL: u64 =
+        0b0000000000_0000000000_1111111111_1111111111_1111111111_1111111111;
+    pub const PC_FILLS: [u64; 4] = [
+        Board::ONE_PC_FILL,
+        Board::TWO_PC_FILL,
+        Board::THREE_PC_FILL,
+        Board::FOUR_PC_FILL,
+    ];
+    pub const PC_BOARDS: [Board; 4] = [
+        Board {
+            fill: Board::ONE_PC_FILL,
+        },
+        Board {
+            fill: Board::TWO_PC_FILL,
+        },
+        Board {
+            fill: Board::THREE_PC_FILL,
+        },
+        Board {
+            fill: Board::FOUR_PC_FILL,
+        },
+    ];
+
     /**
     `{ x: 0, y: 0 }` starts on the bottom-left.
 
@@ -119,7 +148,7 @@ impl Board {
     }
 
     pub fn can_perfect_clear(&self) -> bool {
-        !self.is_empty_board() && (0..6).all(|y| self.is_line_empty(y) || self.is_line_filled(y))
+        Board::PC_FILLS.iter().any(|&fill| self.fill == fill)
     }
 
     pub fn clear_filled_lines(&mut self) {
