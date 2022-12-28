@@ -210,10 +210,7 @@ struct PlaceablePiecesValue {
 }
 
 fn branch_game_to_placable_pieces(config: &Config, game: &Game) -> Vec<Game> {
-    let Some(piece) = game.piece else {
-            return vec![];
-        };
-
+    let piece = game.piece.unwrap();
     let mut memo = HashMap::new();
 
     generate_placable_pieces(config, game, &mut memo);
